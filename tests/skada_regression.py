@@ -231,6 +231,7 @@ class SkadaTests(unittest.TestCase):
 
     def test_combat_end_preserves_historical_set_identity(self):
         core = (ADDON / "Core/Core.lua").read_text(encoding="utf-8-sig")
+        helpers = core[core.index("local function save_window_sets()"):core.index("-- finds a mode")]
         start_modes = core.index("function Skada:SetModes()")
         end_modes = core.index("\nend", start_modes) + len("\nend")
         start_end = core.index("function combat_end()")
@@ -259,7 +260,7 @@ class SkadaTests(unittest.TestCase):
           if Skada.sets[i]==remove_set then table.remove(Skada.sets,i) end
          end end
         end
-        ''' + core[start_modes:end_modes] + "\n" + core[start_end:end_end] + '''
+        ''' + helpers + core[start_modes:end_modes] + "\n" + core[start_end:end_end] + '''
         for _,keep in ipairs({false,true}) do
          for phases=0,2 do
           for _,restore in ipairs({false,true}) do
@@ -714,6 +715,11 @@ class SkadaTests(unittest.TestCase):
         local win=setmetatable({metadata={},history={},db={},display={},Wipe=function() end},
         {__index=Window})
         win:DisplayModes(2); assert(win.selectedset==2,"numeric segment lost")
+        win:DisplayModes("100"); assert(win.selectedset==1)
+        Skada.sets[3]={name="Death one",starttime=100,snapshotid="death:100:150"}
+        Skada.sets[4]={name="Death two",starttime=100,snapshotid="death:100:160"}
+        win:DisplayModes("death:100:150"); assert(win.selectedset==3)
+        win:DisplayModes("death:100:160"); assert(win.selectedset==4)
         win:DisplayModes("100"); assert(win.selectedset==1)
         win:DisplayModes("current"); assert(win.selectedset=="current")
         win:DisplayModes("total"); assert(win.selectedset=="total")

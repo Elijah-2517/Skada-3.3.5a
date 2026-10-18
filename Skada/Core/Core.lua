@@ -285,6 +285,29 @@ local function clean_sets(force)
 	end
 end
 
+local function save_window_sets()
+	local selected, restore = new(), new()
+	for i = 1, #windows do
+		local win = windows[i]
+		if type(win.selectedset) == "number" then selected[win] = Skada.sets[win.selectedset] end
+		if type(win.restore_set) == "number" then restore[win] = Skada.sets[win.restore_set] end
+	end
+	return selected, restore
+end
+
+local function restore_window_sets(selected, restore)
+	local indices = new()
+	for i = 1, #Skada.sets do indices[Skada.sets[i]] = i end
+	for win, set in pairs(selected) do
+		win.selectedset = indices[set] or "current"
+		win.changed = true
+	end
+	for win, set in pairs(restore) do win.restore_set = indices[set] or "current" end
+	del(selected)
+	del(restore)
+	del(indices)
+end
+
 -- finds a mode
 local function find_mode(name)
 	for i = 1, #modes do
@@ -664,7 +687,7 @@ function Window:UpdateDisplay()
 				nr = nr + 1
 				d = self:nr(nr)
 
-				d.id = tostring(set.starttime)
+				d.id = set.snapshotid or tostring(set.starttime)
 				_, d.label, d.valuetext = Skada:GetSetLabel(set)
 				d.value = 1
 				d.emphathize = set.keep
@@ -873,7 +896,7 @@ do
 			local sets = Skada.sets
 			for i = 1, #sets do
 				local set = sets[i]
-				if set and tostring(set.starttime) == settime then
+				if set and (set.snapshotid or tostring(set.starttime)) == settime then
 					if set.name == L["Current"] then
 						self.selectedset = "current"
 					elseif set.name == L["Total"] then
@@ -1579,32 +1602,34 @@ local function generate_total()
 
 	for i = 1, #sets do
 		local set = sets[i]
-		for k, v in pairs(set) do
-			if k == "starttime" and (not total.starttime or v < total.starttime) then
-				total.starttime = v
-			elseif k == "endtime" and (not total.endtime or v > total.endtime) then
-				total.endtime = v
-			elseif type(v) == "number" and k ~= "starttime" and k ~= "endtime" then
-				total[k] = (total[k] or 0) + v
-			end
-		end
-
-		local set_actors = set.actors
-		local total_actors = total.actors
-
-		for name, p in pairs(set_actors) do
-			if not p.enemy then
-				local actor = total_actors[name] or new()
-
-				for k, v in pairs(p) do
-					if (type(v) == "string" or k == "spec" or k == "flag") then
-						actor[k] = actor[k] or v
-					elseif type(v) == "number" then
-						actor[k] = (actor[k] or 0) + v
-					end
+		if not set.snapshotid then
+			for k, v in pairs(set) do
+				if k == "starttime" and (not total.starttime or v < total.starttime) then
+					total.starttime = v
+				elseif k == "endtime" and (not total.endtime or v > total.endtime) then
+					total.endtime = v
+				elseif type(v) == "number" and k ~= "starttime" and k ~= "endtime" then
+					total[k] = (total[k] or 0) + v
 				end
+			end
 
-				total_actors[name] = actor
+			local set_actors = set.actors
+			local total_actors = total.actors
+
+			for name, p in pairs(set_actors) do
+				if not p.enemy then
+					local actor = total_actors[name] or new()
+
+					for k, v in pairs(p) do
+						if (type(v) == "string" or k == "spec" or k == "flag") then
+							actor[k] = actor[k] or v
+						elseif type(v) == "number" then
+							actor[k] = (actor[k] or 0) + v
+						end
+					end
+
+					total_actors[name] = actor
+				end
 			end
 		end
 	end
@@ -2527,7 +2552,7 @@ function Skada:GetSet(id, unbound)
 
 	for i = 1, #self.sets do
 		local set = self.sets[i]
-		if set and (tostring(set.starttime) == id or set.name == id) then
+		if set and ((set.snapshotid or tostring(set.starttime)) == id or set.name == id) then
 			return unbound and set or setPrototype:Bind(set)
 		end
 	end
@@ -2580,6 +2605,34 @@ function Skada:NewPhase()
 	self:Printf(L["\124cffffbb00%s\124r - \124cff00ff00Phase %s\124r started."], set.mobname or L["Unknown"], set.phase)
 end
 
+function Skada:SaveDeathSnapshot()
+	if not self.inCombat or not self.current or self.current.stopped then return end
+	local snapshot = {}
+	copy(snapshot, self.current)
+	snapshot.started, snapshot.stopped, snapshot.keep = nil, nil, true
+	snapshot.endtime = time()
+	snapshot.time = max(1, snapshot.endtime - snapshot.starttime)
+	snapshot.snapshotid = CheckDuplicate(format("death:%s:%s", snapshot.starttime, snapshot.endtime), self.sets, "snapshotid")
+	snapshot.mobname = format(L["%s - Death snapshot (%s)"], snapshot.mobname or snapshot.name or L["Unknown"], self:FormatTime(snapshot.time))
+	snapshot.name = check_set_name(snapshot)
+	setPrototype:Bind(snapshot)
+	for _, actor in pairs(snapshot.actors) do actor.last = nil end
+
+	-- Finalize only the copy: normal SetComplete hooks can clear live trackers.
+	local auras = self:GetModule("Buffs and Debuffs", true)
+	if auras and auras.Clean then auras:Clean(nil, snapshot, snapshot.endtime, true) end
+
+	local selected, restore = save_window_sets()
+	tinsert(self.sets, 1, snapshot)
+	clean_sets()
+	restore_window_sets(selected, restore)
+	for i = 1, #windows do
+		if windows[i].Wipe then windows[i]:Wipe(true) end
+	end
+	self:UpdateDisplay(true)
+	return snapshot
+end
+
 function combat_end()
 	if not Skada.current then return end
 	Private.ClearTempUnits()
@@ -2596,16 +2649,7 @@ function combat_end()
 	end
 
 	-- process segment
-	local selected_sets, restore_sets = new(), new()
-	for i = 1, #windows do
-		local win = windows[i]
-		if type(win.selectedset) == "number" then
-			selected_sets[win] = Skada.sets[win.selectedset]
-		end
-		if type(win.restore_set) == "number" then
-			restore_sets[win] = Skada.sets[win.restore_set]
-		end
-	end
+	local selected_sets, restore_sets = save_window_sets()
 	process_set(Skada.current, curtime)
 
 	-- process phase segments
@@ -2654,18 +2698,7 @@ function combat_end()
 	wipe(vehicles)
 
 	-- Insertions, discarded short fights and pruning can all change indices.
-	local indices = new()
-	for i = 1, #Skada.sets do indices[Skada.sets[i]] = i end
-	for win, set in pairs(selected_sets) do
-		win.selectedset = indices[set] or "current"
-		win.changed = true
-	end
-	for win, set in pairs(restore_sets) do
-		win.restore_set = indices[set] or "current"
-	end
-	del(selected_sets)
-	del(restore_sets)
-	del(indices)
+	restore_window_sets(selected_sets, restore_sets)
 
 	if Skada.modes_set then
 		Skada:UpdateDisplay(true)
@@ -2800,6 +2833,7 @@ end
 do
 	local tentative, tentative_set, tentative_timer
 	local dead_members, starting_members = {}, 0
+	local death_snapshot_taken
 
 	-- Edit Skada\Core\Tables.lua
 	local ignored_events = Skada.ignored_events
@@ -2870,6 +2904,7 @@ do
 
 		-- Snapshot the roster, including the player and excluding pets.
 		wipe(dead_members)
+		death_snapshot_taken = nil
 		starting_members = 0
 		for unit in Skada.UnitIterator(true) do
 			starting_members = starting_members + 1
@@ -3075,8 +3110,9 @@ do
 	function Skada:UNIT_HEALTH(_, unit)
 		if not self.inCombat or not unit then return end
 		local guid = UnitGUID(unit)
-		if guid and dead_members[guid] and UnitHealth(unit) > 0 and not UnitIsDeadOrGhost(unit) then
+		if guid and (dead_members[guid] or (guid == self.userGUID and death_snapshot_taken)) and UnitHealth(unit) > 0 and not UnitIsDeadOrGhost(unit) then
 			dead_members[guid] = nil
+			if guid == self.userGUID then death_snapshot_taken = nil end
 		end
 	end
 
@@ -3201,6 +3237,11 @@ do
 		end
 
 		check_boss_fight(self.current, t, src_is_interesting, dst_is_interesting)
+
+		if self.inCombat and t.event == "UNIT_DIED" and t.dstGUID == self.userGUID and not death_snapshot_taken and not UnitIsFeignDeath("player") then
+			death_snapshot_taken = true
+			self:SaveDeathSnapshot()
+		end
 
 		-- Record the threshold death before freezing the segment and its phases.
 		if P.autostop and t.event == "UNIT_DIED" then

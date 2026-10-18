@@ -882,3 +882,5 @@ L["Thorim"] = true
 L["Twin Val'kyr"] = true
 L["Valithria Dreamwalker"] = true
 L["Yogg-Saron"] = true
+
+L["%s - Death snapshot (%s)"] = true

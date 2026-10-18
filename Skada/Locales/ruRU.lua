@@ -798,3 +798,5 @@ L["Thorim"] = "Торим"
 L["Twin Val'kyr"] = "Валь'киры-близнецы"
 L["Valithria Dreamwalker"] = "Валитрия Сноходица"
 L["Yogg-Saron"] = "Йогг-Сарон"
+
+L["%s - Death snapshot (%s)"] = "%s - На момент моей смерти (%s)"

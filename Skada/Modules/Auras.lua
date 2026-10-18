@@ -100,8 +100,8 @@ do
 		end
 	end
 
-	function main:Clean(_, set, curtime)
-		wipe(aura) -- empty aura table first
+	function main:Clean(_, set, curtime, snapshot)
+		if not snapshot then wipe(aura) end -- live scratch data belongs to the continuing fight
 
 		local actors = set and set.actors
 		if not actors then return end
