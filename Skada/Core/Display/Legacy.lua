@@ -1454,14 +1454,15 @@ Skada:RegisterDisplay("Legacy Bar Display", "mod_bar_desc", function(L, P)
 					if not data.ignore then
 						nr = nr + 1
 
-						if data.changed and not bar.changed then
-							bar.changed = true
-							bar_seticon(bar, win.db, data, data.icon)
-							bar_setcolor(bar, win.db, data, data.color)
-						elseif not data.changed and bar.changed then
+						if data.refresh or (bar.changed and not data.changed) then
+							data.refresh = nil
 							bar.changed = nil
 							bar_seticon(bar, win.db, data)
 							bar_setcolor(bar, win.db, data)
+						elseif data.changed and not bar.changed then
+							bar.changed = true
+							bar_seticon(bar, win.db, data, data.icon)
+							bar_setcolor(bar, win.db, data, data.color)
 						end
 					end
 				end

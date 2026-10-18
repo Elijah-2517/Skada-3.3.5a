@@ -556,15 +556,22 @@ Skada:RegisterModule("Nickname", function(L, P, G, _, _, O)
 
 		Skada.oFormatName = Skada.FormatName
 		Skada.FormatName = function(self, name, guid)
+			-- namedisplay may be nil/invalid before module initialization
+			-- (or after a bad saved variable value), so normalize it here.
+			local namedisplay = (P and tonumber(P.namedisplay)) or 2
+			if namedisplay < 1 or namedisplay > 4 then
+				namedisplay = 2
+			end
+
 			-- missing guid or showing only names?
-			if not guid or P.namedisplay <= 1 then
+			if not guid or namedisplay <= 1 then
 				return self:oFormatName(name)
 			end
 
 			-- cache table handles the worse part!
 			local nickname = cached_nickname[guid]
 			if nickname and nickname ~= name then
-				name = format(nickname_fmt[P.namedisplay], name, nickname)
+				name = format(nickname_fmt[namedisplay], name, nickname)
 			end
 
 			-- leave the rest to the original func!

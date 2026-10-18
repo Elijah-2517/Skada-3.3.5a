@@ -4,7 +4,8 @@ local GetAddOnMetadata = GetAddOnMetadata
 ns.author = GetAddOnMetadata(folder, "Author")
 ns.version = GetAddOnMetadata(folder, "Version")
 ns.date = GetAddOnMetadata(folder, "X-Date")
-ns.website = "https://github.com/bkader/Skada-WoTLK"
+ns.website = "https://github.com/neticsoul/Skada-WotLK-Netic"
+ns.upstream = "https://github.com/bkader/Skada-WoTLK"
 ns.logo = [[Interface\ICONS\spell_lightning_lightningbolt01]]
 ns.revisited = true -- Skada-Revisited flag
 ns.Private = {} -- holds private stuff
@@ -48,6 +49,13 @@ ns.cacheTable2 = {} -- secondary cache table
 
 -- table used to crop mode options images.
 ns.cropTable = {0.06, 0.94, 0.06, 0.94}
+
+-- locale utils
+do
+	local GAME_LOCALE = ns.GAME_LOCALE or GetLocale()
+	ns.GAME_LOCALE = GAME_LOCALE
+	ns.isEastAsia = GAME_LOCALE == "zhCN" or GAME_LOCALE == "zhTW" or GAME_LOCALE == "koKR"
+end
 
 -------------------------------------------------------------------------------
 -- flags/bitmasks
@@ -336,6 +344,10 @@ function Private.RegisterClasses()
 	end
 	ns.validclass = validclass -- used to validate classes
 
+	-- localize arena team colors
+	L["ARENA_GREEN"] = L["Green Team"]
+	L["ARENA_GOLD"] = L["Gold Team"]
+
 	-- custom class colors
 	classcolors.BOSS = {r = 0.203, g = 0.345, b = 0.525}
 	classcolors.ENEMY = {r = 0.94117, g = 0, b = 0.0196}
@@ -343,12 +355,19 @@ function Private.RegisterClasses()
 	classcolors.NEUTRAL = {r = 1.0, g = 1.0, b = 0.1}
 	classcolors.PET = {r = 0.09, g = 0.61, b = 0.55}
 
+	-- arena class colors
+	classcolors.ARENA_GOLD = {r = 1, g = 0.82, b = 0}
+	classcolors.ARENA_GREEN = {r = 0.1, g = 1, b = 0.1}
+	if GetCVar("colorblindMode") == "1" then
+		classcolors.ARENA_GREEN.r = 0.686
+		classcolors.ARENA_GREEN.g = 0.384
+		classcolors.ARENA_GREEN.b = 1
+	end
+
 	-- generate colorStr
 	local RGBPercToHex = Private.RGBPercToHex
 	for class, info in pairs(classcolors) do
-		if not info.colorStr then
-			info.colorStr = RGBPercToHex(info.r, info.g, info.b, true)
-		end
+		info.colorStr = info.colorStr or RGBPercToHex(info.r, info.g, info.b, true)
 	end
 	-- alias to enemy for now...
 	classcolors.PLAYER = classcolors.ENEMY
@@ -542,6 +561,14 @@ function Private.RegisterClasses()
 				disabled = no_custom,
 				args = {}
 			},
+			arena = {
+				type = "group",
+				name = L["Arena Teams"],
+				order = 40,
+				hidden = no_custom,
+				disabled = no_custom,
+				args = {}
+			},
 			reset = {
 				type = "execute",
 				name = L["Reset"],
@@ -559,6 +586,12 @@ function Private.RegisterClasses()
 	for class, data in pairs(classcolors) do
 		if validclass[class] then
 			colorsOpt.args.class.args[class] = {
+				type = "color",
+				name = L[class],
+				desc = format(L["Color for %s."], L[class])
+			}
+		elseif class == "ARENA_GREEN" or class == "ARENA_GOLD" then
+			colorsOpt.args.arena.args[class] = {
 				type = "color",
 				name = L[class],
 				desc = format(L["Color for %s."], L[class])
@@ -715,10 +748,15 @@ function Private.RegisterMedias()
 	LSM:Register("statusbar", "Smooth", format([[%s\Statusbar\Smooth]], ns.mediapath))
 	LSM:Register("statusbar", "Solid", [[Interface\Buttons\WHITE8X8]])
 	LSM:Register("statusbar", "TukTex", format([[%s\Statusbar\TukTex]], ns.mediapath))
+	LSM:Register("statusbar", "TWW Bar", format([[%s\Statusbar\TWWBar]], ns.mediapath))
+	LSM:Register("statusbar", "TWW Header", format([[%s\Statusbar\TWWHeader]], ns.mediapath))
 
 	-- borders
 	LSM:Register("border", "Glow", format([[%s\Border\Glow]], ns.mediapath))
 	LSM:Register("border", "Roth", format([[%s\Border\Roth]], ns.mediapath))
+
+	-- backgrounds
+	LSM:Register("background", "TWW Background", format([[%s\Background\TWWBackground]], ns.mediapath))
 
 	-- sounds
 	LSM:Register("sound", "Cartoon FX", [[Sound\Doodad\Goblin_Lottery_Open03.wav]])
@@ -1421,20 +1459,18 @@ do
 	Private.SpellSplit = SpellSplit
 
 	function Private.SpellInfo(spellid)
-		if spellid then
-			spellid = math_abs(SpellSplit(spellid))
-			local res1, res2, res3, res4, res5, res6, res7, res8, res9
-			if customSpells[spellid] then
-				res1, res3 = customSpells[spellid][1], customSpells[spellid][2]
-			else
-				res1, res2, res3, res4, res5, res6, res7, res8, res9 = GetSpellInfo(spellid)
-				if spellid == 6603 then
-					res1 = L["Melee"]
-				end
-				res3 = customIcons[spellid] or res3
-			end
-			return res1, res2, res3, res4, res5, res6, res7, res8, res9
+		spellid = spellid and math_abs(SpellSplit(spellid)) or nil
+		if not spellid then return end
+
+		if customSpells[spellid] then -- a custom spell?
+			local name, icon = customSpells[spellid][1], customSpells[spellid][2]
+			return name, nil, icon
 		end
+
+		local name, rank, icon, castTime, minRange, maxRange, spellID = GetSpellInfo(spellid)
+		name = spellid == 6603 and L["Melee"] or name
+		icon = customIcons[spellid] or icon
+		return name, rank, icon, castTime, minRange, maxRange, spellID
 	end
 
 	function Private.SpellLink(spellid)
@@ -1607,16 +1643,20 @@ do
 	end
 
 	-- returns unit's full name
-	local function UnitFullName(unit, ownerUnit, fmt)
+	local function UnitFullname(unit, ownerUnit, fmt)
+		ownerUnit = ownerUnit ~= unit and ownerUnit or nil
+
 		if ownerUnit and fmt then
 			local name, realm = UnitName(ownerUnit)
+			name = name or L["Unknown"]
 			return format("%s <%s>", UnitName(unit), realm and realm ~= "" and format("%s-%s", name, realm) or name)
 		end
 
 		local name, realm = UnitName(unit)
+		name = name or L["Unknown"]
 		return not ownerUnit and realm and realm ~= "" and format("%s-%s", name, realm) or name
 	end
-	Private.UnitFullName = UnitFullName
+	Private.UnitFullname = UnitFullname
 
 	-- adds a combatant
 	function Private.AddCombatant(unit, ownerUnit)
@@ -1633,7 +1673,7 @@ do
 		-- for players...
 		local _, class = UnitClass(unit)
 		guidToClass[guid] = class
-		guidToName[guid] = UnitFullName(unit)
+		guidToName[guid] = UnitFullname(unit)
 	end
 end
 
@@ -1745,7 +1785,7 @@ do
 			self.__index = self
 			bind_set_actors(obj.actors)
 		end
-		self.arena = (ns.forPVP and obj and obj.type == "arena")
+		self.arena = (obj and obj.type == "arena")
 		return obj
 	end
 
@@ -1969,6 +2009,12 @@ do
 			if strmatch(d.label, "%<(%a+)%>") then
 				d.class = "PET"
 				return d
+			end
+
+			-- actor's bar needs to be refreshed?
+			if actor.__mod then
+				actor.__mod = nil
+				d.refresh = true
 			end
 
 			-- no need to go further for enemies

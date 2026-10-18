@@ -45,7 +45,7 @@ Skada:RegisterModule("Healing", function(L, P)
 	local function log_heal(set)
 		if not heal.amount then return end
 
-		local actor = Skada:GetActor(set, heal.actorname, heal.actorid, heal.actorflags)
+		local actor = Skada:GetActor(set, heal.actorname, heal.actorid, heal.actorflags, heal.spell)
 		if not actor then return end
 
 		-- get rid of overheal

@@ -22,7 +22,7 @@ Skada:RegisterModule("Casts", function(L, P)
 
 	local cast = {}
 	local function log_spellcast(set)
-		local actor = Skada:GetActor(set, cast.actorname, cast.actorid, cast.actorflags)
+		local actor = Skada:GetActor(set, cast.actorname, cast.actorid, cast.actorflags, cast.spell)
 		if not actor then return end
 
 		set.cast = (set.cast or 0) + 1
@@ -41,6 +41,7 @@ Skada:RegisterModule("Casts", function(L, P)
 		cast.actorid = t.srcGUID
 		cast.actorname = t.srcName
 		cast.actorflags = t.srcFlags
+		cast.spell = t.spellid
 		cast.spellid = t.spellstring
 
 		Skada:FixPets(cast)

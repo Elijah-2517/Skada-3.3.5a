@@ -866,7 +866,7 @@ Skada:RegisterModule("Enemy Damage Done", function(L, P, _, C)
 		local absorbed = dmg.absorbed or 0
 		if (dmg.amount + absorbed) == 0 then return end
 
-		local e = Skada:GetActor(set, dmg.actorname, dmg.actorid, dmg.actorflags)
+		local e = Skada:GetActor(set, dmg.actorname, dmg.actorid, dmg.actorflags, dmg.spell)
 		if not e then
 			return
 		elseif (set.type == "arena" or set.type == "pvp") and dmg.amount > 0 then
@@ -1292,7 +1292,7 @@ Skada:RegisterModule("Enemy Healing Done", function(L, P)
 	local function log_heal(set)
 		if not heal.amount then return end
 
-		local actor = Skada:GetActor(set, heal.actorname, heal.actorid, heal.actorflags)
+		local actor = Skada:GetActor(set, heal.actorname, heal.actorid, heal.actorflags, heal.spell)
 		if not actor then return end
 
 		-- get rid of overheal

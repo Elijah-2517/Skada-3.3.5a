@@ -93,7 +93,7 @@ Skada:RegisterModule("Damage", function(L, P)
 	local function log_damage(set)
 		if not dmg.amount then return end
 
-		local actor = Skada:GetActor(set, dmg.actorname, dmg.actorid, dmg.actorflags)
+		local actor = Skada:GetActor(set, dmg.actorname, dmg.actorid, dmg.actorflags, dmg.spell)
 		if not actor then
 			return
 		elseif dmg.amount > 0 and not dmg.petname then
@@ -1795,7 +1795,7 @@ Skada:RegisterModule("Absorbed Damage", function(L, _, _, C)
 		if not self.actors then return end
 
 		local total = 0
-		local combined = (Skada.forPVP and self.type == "arena")
+		local combined = (self.type == "arena")
 
 		-- no class filter?
 		if not class then

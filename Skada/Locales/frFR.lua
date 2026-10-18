@@ -759,7 +759,6 @@ L["opt_tweaks_total_fmt_desc"] = "Les segments avec %s sont ajout\195\169s aux d
 L["Detailed total segment"] = "Segment total d\195\169taill\195\169"
 L["opt_tweaks_total_full_desc"] = "Si activ\195\169e, Skada enregistrera tout dans le segment \124cffffbb00Total\124r, au lieu que des totaux."
 -- arena
-L["mod_pvp_desc"] = "Ajoute la d\195\169tection des sp\195\169cialisations pour les ar\195\168nes et les champs de bataille, et affiche les adversaires de l'ar\195\168ne dans la m\195\170me fen\195\170tre."
 L["Gold Team"] = "\195\137quipe dor\195\169e"
 L["Green Team"] = "\195\137quipe verte"
 L["Color for %s."] = "Couleur \1242 %s."

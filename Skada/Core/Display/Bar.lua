@@ -585,10 +585,13 @@ Skada:RegisterDisplay("Bar Display", "mod_bar_desc", function(L, P, G, _, _, O)
 				end
 
 				GameTooltip:AddLine(bar.text, classcolors.unpack(bar.class))
-				if bar.role and bar.role ~= "NONE" then
+				if type(bar.role) == "string" and bar.role ~= "NONE" then
+					-- Netic fix (#117): guard against bar.role being a boolean
+					-- (true/false) instead of a role token. AceLocale errors with
+					-- "Missing entry for 'true'" if we look it up unguarded.
 					GameTooltip:AddDoubleLine(L["Role"], L[bar.role], 1, 1, 1)
 				end
-				if bar.spec then
+				if type(bar.spec) == "string" or type(bar.spec) == "number" then
 					GameTooltip:AddDoubleLine(L["Specialization"], L["SPEC_"..bar.spec], 1, 1, 1)
 				end
 				if bar.talent then
@@ -761,14 +764,15 @@ Skada:RegisterDisplay("Bar Display", "mod_bar_desc", function(L, P, G, _, _, O)
 						bar:SetValue(data.value)
 						bar:SetMaxValue(metadata.maxvalue or 1)
 
-						if data.changed and not bar.changed then
-							bar.changed = true
-							bar_seticon(bar, db, data, data.icon)
-							bar_setcolor(bar, db, data, data.color)
-						elseif not data.changed and bar.changed then
+						if data.refresh or (bar.changed and not data.changed) then
+							data.refresh = nil
 							bar.changed = nil
 							bar_seticon(bar, db, data)
 							bar_setcolor(bar, db, data)
+						elseif data.changed and not bar.changed then
+							bar.changed = true
+							bar_seticon(bar, db, data, data.icon)
+							bar_setcolor(bar, db, data, data.color)
 						end
 					else
 						-- Initialization of bars.
@@ -2009,6 +2013,132 @@ Skada:RegisterDisplay("Bar Display", "mod_bar_desc", function(L, P, G, _, _, O)
 			local list = {}
 
 			local themes = {
+				["DragonUI (Netic)"] = {
+					barspacing = 1,
+					bartexture = "Smooth",
+					barfont = "ABF",
+					barfontflags = "",
+					barfontsize = 11,
+					numfont = "ABF",
+					numfontflags = "",
+					numfontsize = 11,
+					barheight = 16,
+					barwidth = 240,
+					baroffset = 0,
+					barorientation = 1,
+					barcolor = {r = 0.2, g = 0.55, b = 0.95, a = 1},
+					barbgcolor = {r = 0.1, g = 0.12, b = 0.16, a = 0.6},
+					baraltcolor = {r = 0.3, g = 0.45, b = 0.8, a = 1},
+					spellschoolcolors = true,
+					classcolorbars = true,
+					classicons = true,
+					specicons = true,
+					buttons = {
+						menu = true,
+						reset = true,
+						report = true,
+						mode = true,
+						segment = true,
+						phase = false,
+						split = false,
+						stop = false
+					},
+					title = {
+						textcolor = {r = 1, g = 0.82, b = 0.2, a = 1},
+						height = 18,
+						font = "ABF",
+						fontsize = 12,
+						texture = "Flat",
+						bordercolor = {r = 0, g = 0, b = 0, a = 1},
+						bordertexture = "None",
+						borderthickness = 1,
+						borderinsets = 0,
+						color = {r = 0.08, g = 0.1, b = 0.13, a = 0.95},
+						fontflags = "",
+						spacing = 1,
+						toolbar = 2,
+						toolbaropacity = 0.25
+					},
+					background = {
+						height = 200,
+						texture = "Flat",
+						bordercolor = {r = 0.3, g = 0.4, b = 0.55, a = 0.8},
+						bordertexture = "None",
+						borderthickness = 1,
+						borderinsets = 0,
+						color = {r = 0.04, g = 0.06, b = 0.09, a = 0.85},
+						tilesize = 0
+					},
+					strata = "LOW",
+					scale = 1,
+					enabletitle = true,
+					titleset = true,
+					display = "bar",
+					snapto = true
+				},
+				["TWW (5Buttons)"] = {
+					barspacing = 4,
+					bartexture = "TWW Bar",
+					barfont = "Friz Quadrata TT",
+					barfontflags = "",
+					barfontsize = 11,
+					numfont = "Friz Quadrata TT",
+					numfontflags = "",
+					numfontsize = 11,
+					barheight = 28,
+					barwidth = 240,
+					baroffset = 0,
+					barorientation = 1,
+					barcolor = {r = 0.3, g = 0.3, b = 0.8, a = 1},
+					barbgcolor = {r = 0.05, g = 0.05, b = 0.05, a = 0.5},
+					baraltcolor = {r = 0.45, g = 0.45, b = 0.8, a = 1},
+					spellschoolcolors = true,
+					classcolorbars = true,
+					classicons = true,
+					specicons = true,
+					buttons = {
+						menu = true,
+						reset = true,
+						report = true,
+						mode = true,
+						segment = true,
+						phase = false,
+						split = false,
+						stop = false
+					},
+					title = {
+						textcolor = {r = 1.0, g = 0.82, b = 0.0, a = 1},
+						height = 32,
+						font = "Friz Quadrata TT",
+						fontsize = 13,
+						texture = "TWW Header",
+						bordercolor = {r = 0, g = 0, b = 0, a = 1},
+						bordertexture = "None",
+						borderthickness = 0,
+						borderinsets = 0,
+						color = {r = 1.0, g = 0.82, b = 0.0, a = 1},
+						fontflags = "",
+						spacing = 1,
+						toolbar = 2,
+						toolbaropacity = 0.25
+					},
+					background = {
+						height = 200,
+						texture = "Solid",
+						bordercolor = {r = 0, g = 0, b = 0, a = 0},
+						bordertexture = "None",
+						borderthickness = 0,
+						borderinsets = 0,
+						color = {r = 0.094, g = 0.094, b = 0.094, a = 0},
+						tilesize = 0
+					},
+					strata = "LOW",
+					scale = 1,
+					enabletitle = true,
+					titleset = true,
+					display = "bar",
+					snapto = true
+				},
 				["All glowy 'n stuff"] = {
 					barspacing = 0,
 					bartexture = "LiteStep",
@@ -2350,6 +2480,12 @@ Skada:RegisterDisplay("Bar Display", "mod_bar_desc", function(L, P, G, _, _, O)
 												if win and win.db and (applywindow == "**" or win.db.name == applywindow) then
 													copy(win.db, theme, skipped)
 													Skada:ApplySettings()
+													-- force a redraw so newly applied textures show up
+													-- immediately, without requiring a UI reload.
+													if win.bargroup and win.bargroup:IsShown() then
+														win.bargroup:Hide()
+														win.bargroup:Show()
+													end
 													applytheme = nil
 													-- single window? no need to go further..
 													if win.db.name == applywindow then break end

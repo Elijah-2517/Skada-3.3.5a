@@ -3,11 +3,12 @@ local Private = Skada.Private
 
 local select, pairs, type = select, pairs, type
 local tonumber, format, gsub = tonumber, string.format, string.gsub
+local find, strlower = string.find, strlower or string.lower
 local setmetatable, wipe = setmetatable, wipe
 local next, time, GetTime = next, time, GetTime
 local _
 
-local UnitGUID, UnitClass, UnitFullName = UnitGUID, UnitClass, Private.UnitFullName
+local UnitGUID, UnitClass, UnitFullname = UnitGUID, UnitClass, Private.UnitFullname
 local IsInGroup, IsInRaid = Skada.IsInGroup, Skada.IsInRaid
 local tablePool, TempTable = Skada.tablePool, Private.TempTable
 local new, del = Private.newTable, Private.delTable
@@ -188,6 +189,10 @@ end
 do
 	local reverse = string.reverse
 	local numbersystem = nil
+
+	local LOCALE_koKR = _G.LOCALE_koKR or Skada.GAME_LOCALE == "koKR"
+	local LOCALE_zhTW = _G.LOCALE_zhTW or Skada.GAME_LOCALE == "zhTW"
+
 	function Private.SetNumberFormat(system)
 		system = system or numbersystem
 		if numbersystem == system then return end
@@ -204,7 +209,7 @@ do
 			return format("%.0f", num)
 		end
 
-		if system == 3 or (system == 1 and (LOCALE_koKR or LOCALE_zhCN or LOCALE_zhTW)) then
+		if system == 3 or (system == 1 and Skada.isEastAsia) then
 			-- default to chinese, even for western clients.
 			local symbol_1k, symbol_10k, symbol_1b = "千", "万", "亿"
 			if LOCALE_koKR then
@@ -443,7 +448,7 @@ do
 		end
 	end
 
-	local strupper, strlower = string.upper, string.lower
+	local strupper = string.upper
 	local function camel_case(first, rest)
 		return format("%s%s", strupper(first), strlower(rest))
 	end
@@ -1167,56 +1172,67 @@ end
 -------------------------------------------------------------------------------
 -- bossmods callbacks
 
-local find, lower = string.find, string.lower
+do
+	local function Bossmod_DBM(_, mod, is_wipe, _, event)
+		local success = mod and mod.combatInfo and (not is_wipe or event == "Main CID Down" or event == "All Mobs Down")
+		local set = success and (Skada.current or Skada.last)
+		success = set and not set.success and (set.mobname == mod.combatInfo.name or find(strlower(set.mobname), strlower(mod.combatInfo.name)) ~= nil)
+		if not success then return end
 
-function Skada:BigWigs(_, _, event, message)
-	if event == "bosskill" and message and self.current and self.current.gotboss then
-		if find(lower(message), lower(self.current.mobname)) ~= nil and not self.current.success then
-			self.current.success = true
+		set.success = true
+		set.gotboss = set.gotboss or mod.combatInfo.creatureId or true
+		set.mobname = (not set.mobname or set.mobname == L["Unknown"]) and mod.combatInfo.name or set.mobname
 
-			if self.tempsets then -- phases
-				for i = 1, #self.tempsets do
-					local set = self.tempsets[i]
-					if set and not set.success then
-						set.success = true
-					end
+		if Skada.tempsets then -- phases
+			for i = 1, #Skada.tempsets do
+				local s = Skada.tempsets[i]
+				if s and not s.success then
+					s.success = true
+					s.gotboss = set.gotboss
+					s.mobname = set.mobname
 				end
 			end
-
-			self:Debug("\124cffffbb00COMBAT_BOSS_DEFEATED\124r: BigWigs")
-			self:SendMessage("COMBAT_BOSS_DEFEATED", self.current)
-
-			self:StopSegment(L["Smart Stop"])
-			self:SetModes()
 		end
+
+		Skada:Debug("\124cffffbb00COMBAT_BOSS_DEFEATED\124r: DBM")
+		Skada:SendMessage("COMBAT_BOSS_DEFEATED", set)
+		Skada:SmartStop(set)
 	end
-end
 
-function Skada:DBM(_, mod, wipe)
-	if not wipe and mod and mod.combatInfo then
-		local set = self.current or self.last -- just in case DBM was late.
-		if set and not set.success and mod.combatInfo.name and (not set.mobname or find(lower(set.mobname), lower(mod.combatInfo.name)) ~= nil) then
-			set.success = true
-			set.gotboss = set.gotboss or mod.combatInfo.creatureId or true
-			set.mobname = (not set.mobname or set.mobname == L["Unknown"]) and mod.combatInfo.name or set.mobname
+	local function Bossmod_BigWigs()
+		local set = Skada.current or Skada.last
+		if not set or set.success then return end
 
-			if self.tempsets then -- phases
-				for i = 1, #self.tempsets do
-					local s = self.tempsets[i]
-					if s and not s.success then
-						s.success = true
-						s.gotboss = s.gotboss or mod.combatInfo.creatureId or true
-						s.mobname = (not s.mobname or s.mobname == L["Unknown"]) and mod.combatInfo.name or s.mobname
-					end
+		set.success = true
+
+		if Skada.tempsets then -- phases
+			for i = 1, #Skada.tempsets do
+				local s = Skada.tempsets[i]
+				if s and not s.success then
+					s.success = true
 				end
 			end
-
-			self:Debug("\124cffffbb00COMBAT_BOSS_DEFEATED\124r: DBM")
-			self:SendMessage("COMBAT_BOSS_DEFEATED", set)
-
-			self:StopSegment(L["Smart Stop"])
-			self:SetModes()
 		end
+
+		Skada:Debug("\124cffffbb00COMBAT_BOSS_DEFEATED\124r: BigWigs")
+		Skada:SendMessage("COMBAT_BOSS_DEFEATED", set)
+		Skada:SmartStop(set)
+	end
+
+	function Skada:SetupBossmod()
+		self.SetupBossmod = nil
+
+		if _G.DBM and _G.DBM.EndCombat then
+			self:SecureHook(_G.DBM, "EndCombat", Bossmod_DBM)
+			self.bossmod = "DBM"
+		end
+
+		if _G.BigWigs then
+			self:RegisterMessage("BigWigs_OnBossWin", Bossmod_BigWigs)
+			self.bossmod = self.bossmod and self.bossmod .. " + BigWigs" or "BigWigs"
+		end
+
+		Skada:Debug(format("\124cffffbb00Used Bossmod\124r: %s", self.bossmod or "None"))
 	end
 end
 
@@ -1262,6 +1278,8 @@ do
 	local GetUnitRole = Skada.GetUnitRole
 	local GetUnitSpec = Skada.GetUnitSpec
 	local GetUnitIdFromGUID = Skada.GetUnitIdFromGUID
+	local spell_to_spec = Skada.spell_to_spec
+	local spec_to_role = Skada.spec_to_role
 	local actorPrototype = Skada.actorPrototype
 	local playerPrototype = Skada.playerPrototype
 	local enemyPrototype = Skada.enemyPrototype
@@ -1304,7 +1322,7 @@ do
 	end
 
 	-- generic: finds a player/enemy or creates it.
-	function Skada:GetActor(set, actorname, actorid, actorflags)
+	function Skada:GetActor(set, actorname, actorid, actorflags, spellid)
 		-- no set/actors table, sorry!
 		if not set or not set.actors then return end
 
@@ -1324,8 +1342,20 @@ do
 			actor.id = actorid
 			actor.__new = true
 
+			-- grab info from current segment to prevent re-processing.
+			local curr_actor = set ~= self.current and self.current.actors and self.current.actors[actorname]
+			if curr_actor then
+				actor.id = curr_actor.id or actorid
+				actor.class = curr_actor.class
+				actor.role = curr_actor.role
+				actor.spec = curr_actor.spec
+				actor.talent = curr_actor.talent
+				actor.enemy = curr_actor.enemy
+				actor.fake = curr_actor.fake
+			end
+
 			-- is it me? move on..
-			if actorid == self.userGUID then
+			if not actor.class and actorid == self.userGUID then
 				actor.class = self.userClass
 				actor.spec, actor.talent = GetUnitSpec(self.userGUID)
 				actor.role = GetUnitRole(self.userGUID)
@@ -1401,43 +1431,40 @@ do
 			end
 
 			set.actors[actorname] = actor
+
+			-- BossDetected <actor>
+			if set == self.current and actor.enemy and set.gotboss == nil then
+				local isboss, bossid, bossname = self:IsEncounter(actorid, actorname)
+				if isboss then
+					self:Debug(format("\124cffffbb00Boss Detected\124r <\124cffffff00actor\124r>: %s", actorname))
+					set.mobname = bossname or set.mobname or actorname
+					set.gotboss = bossid or true
+					self:SendMessage("COMBAT_ENCOUNTER_START", set)
+					self:PrintFirstHit()
+				end
+			end
 		end
 
 		-- add more details to the actor...
-		if guidToClass[actor.id] then
-			if self.validclass[actor.class] then
-				-- missing spec?
-				if actor.spec == nil then
-					actor.spec = GetUnitSpec(actor.id)
-					actor.__mod = true
+		if self.validclass[actor.class] and (actor.spec == nil or actor.role == nil or actor.role == "NONE") then
+			-- missing spec?
+			if actor.spec == nil then
+				if guidToClass[actor.id] then
+					actor.spec, actor.talent = GetUnitSpec(actorid)
 				end
-				-- missing role?
-				if actor.role == nil or actor.role == "NONE" then
-					actor.role = GetUnitRole(actor.id)
-					actor.__mod = true
-				end
+				-- backup plan or enemies
+				actor.spec = actor.spec or spellid and spell_to_spec[spellid] or nil
+				actor.__mod = actor.__mod or (actor.spec and actor.spec > 0)
 			end
-
-			-- total set has "last" always removed.
-			if not actor.last then
-				actor.last = Skada._Time or GetTime()
-				actor.__mod = true
+			-- missing role?
+			if actor.role == nil then
+				actor.role = guidToClass[actor.id] and GetUnitRole(actorid) or actor.spec and spec_to_role[actor.spec] or nil
+				actor.__mod = actor.__mod or (actor.role ~= nil and actor.role ~= "NONE")
 			end
-		end
-
-		-- pvp enabled
-		if self.validclass[actor.class] and self.forPVP and not actor.spec then
-			actor.__mod = true
-		end
-
-		-- remove __mod key and fire callbacks
-		if actor.__new or actor.__mod then
-			actor.__mod = nil
-			callbacks:Fire(actor.enemy and "Skada_GetEnemy" or "Skada_GetPlayer", actor, set)
 		end
 
 		-- trigger addon change status
-		self.changed = true
+		self.changed = set == self.current
 
 		-- remove the __new key after binding the actor
 		if actor.__new then
@@ -1626,7 +1653,7 @@ do
 			if ownerUnit then
 				local ownerGUID = UnitGUID(ownerUnit)
 				guidToOwner[guid] = ownerGUID
-				return ownerGUID, UnitFullName(ownerUnit)
+				return ownerGUID, UnitFullname(ownerUnit)
 			end
 
 			-- guess the pet from tooltip.
@@ -1705,7 +1732,7 @@ end
 
 do
 	local loadstring, rawset = loadstring, rawset
-	local strsub, strlen, strlower = string.sub, string.len, string.lower
+	local strsub, strlen = string.sub, string.len
 
 	-- args associated to each event name prefix
 	local PREFIXES = {
@@ -2185,7 +2212,7 @@ do
 		if UnitIsDeadOrGhost(unit) then return end
 
 		t.dstGUID = UnitGUID(unit)
-		t.dstName = UnitFullName(unit, owner)
+		t.dstName = UnitFullname(unit, owner)
 		t.dstFlags = not owner and actorflags or nil
 
 		t.class = guidToClass[t.dstGUID]
@@ -2203,7 +2230,7 @@ do
 			elseif source then
 				local aura = new()
 				aura.srcGUID = UnitGUID(source)
-				aura.srcName = UnitFullName(source)
+				aura.srcName = UnitFullname(source)
 				aura.srcFlags = actorflags
 				aura.id = id
 				aura.name = name
@@ -2263,7 +2290,7 @@ do
 			if not UnitExists(unit) then break end
 
 			local target_unit = format("%starget", unit)
-			local target = UnitFullName(target_unit)
+			local target = UnitFullname(target_unit)
 			if target then
 				local _, class = UnitClass(target_unit)
 				if class then
@@ -2271,7 +2298,7 @@ do
 				end
 
 				target_table = target_table or TempTable()
-				target_table:insert(uformat("%s > %s", UnitFullName(unit), target))
+				target_table:insert(uformat("%s > %s", UnitFullname(unit), target))
 			end
 		end
 

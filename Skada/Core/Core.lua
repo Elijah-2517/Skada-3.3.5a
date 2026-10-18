@@ -145,7 +145,7 @@ do
 	-- creates a new set
 	-- @param 	setname 	the segment name
 	-- @param 	set 		the set to override/reuse
-	function create_set(setname, set)
+	function create_set(setname, set, starttime)
 		if set then
 			set = clean_set(set)
 		else
@@ -159,7 +159,7 @@ do
 
 		-- add stuff.
 		set.name = setname
-		set.starttime = time()
+		set.starttime = starttime or time()
 		set.time = 0
 		set.actors = wipe(set.actors or {})
 
@@ -668,6 +668,14 @@ function Window:UpdateDisplay()
 				_, d.label, d.valuetext = Skada:GetSetLabel(set)
 				d.value = 1
 				d.emphathize = set.keep
+
+				if set.gotboss then
+					d.color = classcolors("BOSS")
+				elseif set.type == "arena" then
+					d.color = classcolors(set.faction and "ARENA_GREEN" or "ARENA_GOLD")
+				elseif d.color then
+					d.color = nil
+				end
 			end
 		end
 
@@ -2012,12 +2020,15 @@ function Skada:Reset(force)
 	self:Wipe()
 	check_group()
 
+	self._time = time()
+	self._Time = GetTime()
+
 	if self.current ~= nil then
-		self.current = create_set(L["Current"], self.current)
+		self.current = create_set(L["Current"], self.current, self._time)
 	end
 
 	if self.total ~= nil then
-		self.total = create_set(L["Total"], self.total)
+		self.total = create_set(L["Total"], self.total, self._time)
 		self.sets[0] = self.total
 	end
 
@@ -2445,16 +2456,7 @@ function Skada:OnEnable()
 	-- late loading of modules
 	self:LoadModules(true)
 
-	if _G.BigWigs then
-		self:RegisterMessage("BigWigs_Message", "BigWigs")
-		self.bossmod = "BigWigs"
-	elseif _G.DBM and _G.DBM.EndCombat then
-		self:SecureHook(_G.DBM, "EndCombat", "DBM")
-		self.bossmod = "DBM"
-	elseif self.bossmod then
-		self.bossmod = nil
-	end
-
+	self:SetupBossmod()
 	self:SetupStorage()
 
 	-- deprecated table structure.
@@ -2563,9 +2565,11 @@ function Skada:NewPhase()
 	if not self.current then return end
 	self.tempsets = self.tempsets or new()
 
-	local set = create_set(L["Current"])
+	local set = create_set(L["Current"], nil, self._time)
 	set.mobname = self.current.mobname
 	set.gotboss = self.current.gotboss
+	set.type = self.current.type
+	set.diff = self.current.diff
 	set.started = self.current.started
 	set.phase = 2 + #self.tempsets
 
@@ -2612,14 +2616,17 @@ function combat_end()
 		Skada.tempsets = del(Skada.tempsets)
 	end
 
-	-- clear total semgnt
-	if P.totalidc then
+	-- clear total segment
+	if P.totalidc and Skada.total then
 		for i = 1, #modes do
 			local mode = modes[i]
 			if mode and mode.SetComplete then
 				mode:SetComplete(Skada.total)
 			end
 		end
+
+		-- do you want to do something?
+		callbacks:Fire("Skada_SetComplete", Skada.total, curtime)
 	end
 
 	-- remove players ".last" key from total segment.
@@ -2864,12 +2871,12 @@ do
 
 		if Skada.current == nil then
 			Skada:Debug("\124cffffbb00StartCombat\124r: Segment Created!")
-			Skada.current = create_set(L["Current"], tentative_set)
+			Skada.current = create_set(L["Current"], tentative_set, Skada._time)
 		end
 		tentative_set = nil
 
 		if Skada.total == nil then
-			Skada.total = create_set(L["Total"], Skada.sets[0])
+			Skada.total = create_set(L["Total"], Skada.sets[0], Skada._time)
 			Skada.sets[0] = Skada.total
 		end
 
@@ -2994,32 +3001,48 @@ do
 		-- boss already detected?
 		if set.gotboss then
 			-- default boss defeated event? (no DBM/BigWigs)
-			if not Skada.bossmod and death_events[t.event] and set.gotboss == GetCreatureId(t.dstGUID) then
-				bossdefeat_timer = bossdefeat_timer or Skada:ScheduleTimer(BossDefeated, 0.1)
+			if death_events[t.event] and set.gotboss == GetCreatureId(t.dstGUID) then
+				bossdefeat_timer = bossdefeat_timer or Skada:ScheduleTimer(BossDefeated, Skada.bossmod and 1 or 0.1)
 			end
-			return
-		end
 
-		-- marking set as boss fights relies only on src_is_interesting
-		if trigger_events[t.event] and src_is_interesting and not t:DestIsFriendly() then
-			if set.gotboss == nil then
-				if not _targets or not _targets[t.dstName] then
-					local isboss, bossid, bossname = Skada:IsEncounter(t.dstGUID, t.dstName)
-					if isboss then -- found?
-						set.mobname = bossname or set.mobname or t.dstName
-						set.gotboss = bossid or true
-						Skada:SendMessage("COMBAT_ENCOUNTER_START", set)
-						Skada:PrintFirstHit()
-						_targets = del(_targets)
-					else
-						_targets = _targets or new()
-						_targets[t.dstName] = true
-						set.gotboss = false
-					end
+		-- marking set as boss fights relies only on src_is_interesting or dst_is_interesting
+		elseif trigger_events[t.event] then
+			local actorid, actorname = nil, nil
+			if src_is_interesting and not t:DestIsFriendly() then
+				actorid, actorname = t.dstGUID, t.dstName
+			elseif dst_is_interesting and not t:SourceIsFriendly() then
+				actorid, actorname = t.srcGUID, t.srcName
+			end
+
+			if not actorid or not actorname then
+				return -- nothing...
+			elseif not _targets or not _targets[actorname] then
+				_targets = _targets or new()
+				_targets[actorname] = true
+
+				if set.gotboss == false then
+					set.gotboss = nil
 				end
-			elseif _targets and not _targets[t.dstName] then
-				_targets[t.dstName] = true
-				set.gotboss = nil
+			end
+
+			if set.gotboss == nil then
+				local isboss, bossid, bossname = Skada:IsEncounter(actorid, actorname)
+				if isboss then -- BossDetected <event>
+					Skada:Debug(format("\124cffffbb00Boss Detected\124r <\124cffffff00event\124r>: %s", actorname))
+					set.mobname = bossname or set.mobname or actorname
+					set.gotboss = bossid or true
+					-- Netic fix (#120): if the segment was opened against
+					-- neutral / non-boss mobs (e.g. ICC rats, plagued insects)
+					-- and a real boss is detected afterwards, realign the
+					-- segment start time so the boss timer / DPS are not
+					-- inflated by the previous trash kill.
+					set.starttime = time()
+					Skada:SendMessage("COMBAT_ENCOUNTER_START", set)
+					Skada:PrintFirstHit()
+					_targets = del(_targets)
+				else
+					set.gotboss = false
+				end
 			end
 		end
 	end
@@ -3071,8 +3094,9 @@ do
 			end
 
 			if src_is_interesting or dst_is_interesting then
-				self.current = create_set(L["Current"], tentative_set)
-				self.total = self.total or create_set(L["Total"])
+				self._time = time()
+				self.current = create_set(L["Current"], tentative_set, self._time)
+				self.total = self.total or create_set(L["Total"], nil, self._time)
 
 				if tentative_timer then
 					self:CancelTimer(tentative_timer, true)

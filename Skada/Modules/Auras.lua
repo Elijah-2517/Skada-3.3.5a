@@ -106,7 +106,7 @@ do
 		local actors = set and set.actors
 		if not actors then return end
 
-		local maxtime = set and set:GetTime()
+		local maxtime = set.GetTime and set:GetTime() or Skada:GetSetTime(set)
 		curtime = curtime or Skada._time or time()
 
 		for _, actor in pairs(actors) do
@@ -154,7 +154,7 @@ do
 		if not info or not info.spellid then return end
 
 		-- 3. retrieve the actor.
-		return Skada:GetActor(set, info.actorname, info.actorid, info.actorflags)
+		return Skada:GetActor(set, info.actorname, info.actorid, info.actorflags, info.spell)
 	end
 
 	-- handles SPELL_AURA_APPLIED event
@@ -548,6 +548,7 @@ Skada:RegisterModule("Buffs", function(_, P, G, C)
 			aura.actorflags = t.dstFlags
 			aura.dstName = nil
 
+			aura.spell = t.srcGUID == t.dstGUID and t.spellid or nil
 			aura.spellid = t.spellstring
 			aura.type = t.auratype
 
@@ -652,11 +653,14 @@ Skada:RegisterModule("Buffs", function(_, P, G, C)
 			for _, aura in pairs(args.auras) do
 				local t = new()
 				t.event = args.event
+				t.srcGUID = aura.srcGUID
+				t.srcName = aura.srcName
+				t.srcFlags = aura.srcFlags
 				t.dstGUID = dstGUID
 				t.dstName = dstName
 				t.dstFlags = dstFlags
 				t.spellid = aura.id
-				t.spellstring = spellstrings[aura.id]
+				t.spellstring = spellstrings[aura.id] or format("%s.1", aura.id)
 				t.auratype = "BUFF"
 				t.__temp = true
 				handle_buff(t)
@@ -879,6 +883,7 @@ Skada:RegisterModule("Enemy Buffs", function(_, P, _, C)
 			aura.actorflags = t.dstFlags
 			aura.dstName = nil
 
+			aura.spell = t.srcGUID == t.dstGUID and t.spellid or nil
 			aura.spellid = t.spellstring
 			aura.type = t.auratype
 

@@ -26,5 +26,5 @@
 	<Script file="Threat.lua" />
 	<Script file="Spellcast.lua" />
 	<Script file="Nickname.lua" />
-	<Script file="PvP.lua" />
+	<Script file="ThemeTWW.lua" />
 </Ui>

@@ -756,7 +756,6 @@ L["opt_tweaks_total_fmt_desc"] = "전체 세그먼트의 데이터에 %s가 있�
 L["Detailed total segment"] = "상세 합계"
 -- L["opt_tweaks_total_full_desc"] = "When enabled, Skada will record everything to the total segment, instead of total numbers (record spell details, their targets as their sources)."
 -- arena
-L["mod_pvp_desc"] = "투기장 및 전장에 대한 전문화 감지를 추가하고 같은 창에 투기장 상대를 표시합니다."
 L["Gold Team"] = "금색팀"
 L["Green Team"] = "녹색팀"
 L["Color for %s."] = "%s의 색상입니다."

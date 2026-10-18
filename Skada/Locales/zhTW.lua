@@ -753,7 +753,6 @@ L["opt_tweaks_total_fmt_desc"] = "将带有 %s 的段添加到总段的数据中
 L["Detailed total segment"] = "詳細的總段"
 -- L["opt_tweaks_total_full_desc"] = "When enabled, Skada will record everything to the total segment, instead of total numbers (record spell details, their targets as their sources)."
 -- arena
-L["mod_pvp_desc"] = "為競技場和戰場添加專業化檢測，並在同一窗口顯示競技場對手。"
 L["Gold Team"] = "金隊"
 L["Green Team"] = "綠隊"
 L["Color for %s."] = "%s 的顏色。"

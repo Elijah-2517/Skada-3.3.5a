@@ -265,6 +265,7 @@ class SkadaTests(unittest.TestCase):
         local new=Skada.Private.newTable
         local function del(t) if type(t)=="table" then wipe(t) end end
         local windows,modes,vehicles={},{},{}
+        local callbacks={Fire=function() end}
         local GetCreatureId={}
         local function noop() end
         local time,GetTime=function() return 1000 end,function() return 1000 end

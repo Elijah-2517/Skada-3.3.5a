@@ -758,7 +758,6 @@ L["opt_tweaks_total_fmt_desc"] = "Los segmentos con %s se a\195\177aden a los da
 L["Detailed total segment"] = "Segmento total detallado"
 L["opt_tweaks_total_full_desc"] = "Cuando est\195\161 habilitado, Registrar\195\161 todo en el segmento total en lugar de solo los totales (registre los detalles del hechizo en el segmento \124cffffbb00total\124r)."
 -- arena
-L["mod_pvp_desc"] = "A\195\177adir detecci\195\179n de especializaci\195\179n para arenas y campos de batalla, y mostrar a los oponentes de la arena en la misma ventana."
 L["Gold Team"] = "Equipo dorado"
 L["Green Team"] = "Equipo verde"
 L["Color for %s."] = "Color para %s."

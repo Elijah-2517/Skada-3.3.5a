@@ -1029,7 +1029,7 @@ end
 
 do
 	local strtrim = strtrim or string.trim
-	local UnitExists, UnitFullName = UnitExists, Private.UnitFullName
+	local UnitExists, UnitFullname = UnitExists, Private.UnitFullname
 
 	-- handles reporting
 	local function do_report(window, barid)
@@ -1046,7 +1046,7 @@ do
 			end
 		elseif channel == "target" then
 			if UnitExists("target") then
-				channel = UnitFullName("target")
+				channel = UnitFullname("target")
 			else
 				channel = nil
 			end

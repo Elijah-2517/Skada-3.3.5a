@@ -305,7 +305,12 @@ end
 
 -- UNIT_AURA
 function lib:UNIT_AURA(unit)
+	-- Netic fix (#116): UNIT_AURA may fire with a unit token that no
+	-- longer resolves (post-arena/BG, transitional roster). UnitGUID
+	-- throws "Usage: UnitGUID(\"unit\")" when called with nil/invalid.
+	if not unit or not UnitExists(unit) then return end
 	local guid = UnitGUID(unit)
+	if not guid then return end
 	if (not UnitIsVisible(unit) or (self.wasOffline and self.wasOffline[guid])) then
 		if (not self.outOfSight) then
 			self.outOfSight = {}

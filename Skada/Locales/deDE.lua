@@ -754,7 +754,6 @@ L["opt_tweaks_total_fmt_desc"] = "Segmente mit %s werden zu den Daten des Gesamt
 L["Detailed total segment"] = "Detailliertes Gesamtsegment"
 -- L["opt_tweaks_total_full_desc"] = "When enabled, Skada will record everything to the total segment, instead of total numbers (record spell details, their targets as their sources)."
 -- arena
-L["mod_pvp_desc"] = "F\195\188gen Sie eine Spezialisierungserkennung f\195\188r Arenen und Schlachtfelder hinzu und zeigen Sie Arenagegner im selben Fenster an."
 L["Gold Team"] = "Goldenes Team"
 L["Green Team"] = "Gr\195\188nes Team"
 L["Color for %s."] = "Farbe f\195\188r %s."

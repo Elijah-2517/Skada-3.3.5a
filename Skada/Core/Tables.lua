@@ -155,7 +155,7 @@ ns.ress_spells = {
 ns.cc_spells = {
 	[118] = 0x40, -- Polymorph (rank 1)
 	[676] = 0x01, -- Disarm
-	[710] = 0x20, -- Banish (Rank 1)
+	[710] = 0x20, -- Banish (rank 1)
 	[2070] = 0x01, -- Sap (rank 2)
 	[2637] = 0x08, -- Hibernate (rank 1)
 	[3355] = 0x10, -- Freezing Trap Effect (rank 1)
@@ -171,7 +171,7 @@ ns.cc_spells = {
 	[12826] = 0x40, -- Polymorph (rank 4)
 	[14308] = 0x10, -- Freezing Trap Effect (rank 2)
 	[14309] = 0x10, -- Freezing Trap Effect (rank 3)
-	[18647] = 0x20, -- Banish (Rank 2)
+	[18647] = 0x20, -- Banish (rank 2)
 	[18657] = 0x08, -- Hibernate (rank 2)
 	[18658] = 0x08, -- Hibernate (rank 3)
 	[20066] = 0x02, -- Repentance
@@ -429,6 +429,430 @@ do
 		[spellnames[75480]] = true, -- Petrified Twilight Scale (Scaly Nimbleness)
 	}
 end
+
+-- spells used as backup plan for spec detection/guessing.
+ns.spell_to_spec = {
+	-- Mage (Arcane)
+	[12042] = 62, -- Arcane Power
+	[12043] = 62, -- Presence of Mind
+	[31579] = 62, -- Arcane Empowerment (rank 1)
+	[31582] = 62, -- Arcane Empowerment (rank 2)
+	[31583] = 62, -- Arcane Empowerment (rank 3)
+	[31589] = 62, -- Slow
+	[44425] = 62, -- Arcane Barrage (rank 1)
+	[44780] = 62, -- Arcane Barrage (rank 2)
+	[44781] = 62, -- Arcane Barrage (rank 3)
+	-- Mage (Fire)
+	[2948] = 63, -- Scorch (rank 1)
+	[8444] = 63, -- Scorch (rank 2)
+	[8445] = 63, -- Scorch (rank 3)
+	[8446] = 63, -- Scorch (rank 4)
+	[10205] = 63, -- Scorch (rank 5)
+	[10206] = 63, -- Scorch (rank 6)
+	[10207] = 63, -- Scorch (rank 7)
+	[11113] = 63, -- Blast Wave (rank 1)
+	[13018] = 63, -- Blast Wave (rank 2)
+	[13019] = 63, -- Blast Wave (rank 3)
+	[13020] = 63, -- Blast Wave (rank 4)
+	[13021] = 63, -- Blast Wave (rank 5)
+	[27073] = 63, -- Scorch (rank 8)
+	[27074] = 63, -- Scorch (rank 9)
+	[27133] = 63, -- Blast Wave (rank 6)
+	[28682] = 63, -- Combustion
+	[31661] = 63, -- Dragon's Breath (rank 1)
+	[33041] = 63, -- Dragon's Breath (rank 2)
+	[33042] = 63, -- Dragon's Breath (rank 3)
+	[33043] = 63, -- Dragon's Breath (rank 4)
+	[33933] = 63, -- Blast Wave (rank 7)
+	[42858] = 63, -- Scorch (rank 10)
+	[42859] = 63, -- Scorch (rank 11)
+	[42944] = 63, -- Blast Wave (rank 8)
+	[42945] = 63, -- Blast Wave (rank 9)
+	[42949] = 63, -- Dragon's Breath (rank 5)
+	[42950] = 63, -- Dragon's Breath (rank 6)
+	[44457] = 63, -- Living Bomb (rank 1)
+	[48108] = 63, -- Hot Streak
+	[55359] = 63, -- Living Bomb (rank 2)
+	[55360] = 63, -- Living Bomb (rank 3)
+	-- Mage (Frost)
+	[11426] = 64, -- Ice Barrier (rank 1)
+	[13031] = 64, -- Ice Barrier (rank 2)
+	[13032] = 64, -- Ice Barrier (rank 3)
+	[13033] = 64, -- Ice Barrier (rank 4)
+	[27134] = 64, -- Ice Barrier (rank 5)
+	[31687] = 64, -- Summon Water Elemental
+	[33405] = 64, -- Ice Barrier (rank 6)
+	[43038] = 64, -- Ice Barrier (rank 7)
+	[43039] = 64, -- Ice Barrier (rank 8)
+	[44544] = 64, -- Fingers of Frost
+	[44572] = 64, -- Deep Freeze
+	[57761] = 64, -- Fireball! (Trigger: Brain Freeze)
+
+	-- Paladin (Holy)
+	[20473] = 65, -- Holy Shock (rank 1)
+	[20929] = 65, -- Holy Shock (rank 2)
+	[20930] = 65, -- Holy Shock (rank 3)
+	[27174] = 65, -- Holy Shock (rank 4)
+	[31842] = 65, -- Divine Illumination
+	[33072] = 65, -- Holy Shock (rank 5)
+	[48824] = 65, -- Holy Shock (rank 6)
+	[48825] = 65, -- Holy Shock (rank 7)
+	[53563] = 65, -- Beacon of Light
+	-- Paladin (Protection)
+	[20925] = 66, -- Holy Shield (rank 1)
+	[20927] = 66, -- Holy Shield (rank 2)
+	[20928] = 66, -- Holy Shield (rank 3)
+	[27179] = 66, -- Holy Shield (rank 4)
+	[31935] = 66, -- Avenger's Shield (rank 1)
+	[32699] = 66, -- Avenger's Shield (rank 2)
+	[32700] = 66, -- Avenger's Shield (rank 3)
+	[48826] = 66, -- Avenger's Shield (rank 4)
+	[48827] = 66, -- Avenger's Shield (rank 5)
+	[48951] = 66, -- Holy Shield (rank 5)
+	[48952] = 66, -- Holy Shield (rank 6)
+	[53595] = 66, -- Hammer of the Righteous
+	-- Paladin (Retribution)
+	[20066] = 70, -- Repentance
+	[35395] = 70, -- Crusader Strike
+	[53385] = 70, -- Divine Storm
+	[53489] = 70, -- The Art of War (rank 1)
+	[59578] = 70, -- The Art of War (rank 2)
+	[68020] = 70, -- Seal of Command
+
+	-- Warrior (Arms)
+	[12294] = 71, -- Mortal Strike (rank 1)
+	[21551] = 71, -- Mortal Strike (rank 2)
+	[21552] = 71, -- Mortal Strike (rank 3)
+	[21553] = 71, -- Mortal Strike (rank 4)
+	[25248] = 71, -- Mortal Strike (rank 5)
+	[29623] = 71, -- Endless Rage
+	[30330] = 71, -- Mortal Strike (rank 6)
+	[46856] = 71, -- Trauma (rank 1)
+	[46857] = 71, -- Trauma (rank 2)
+	[46924] = 71, -- Bladestorm
+	[47485] = 71, -- Mortal Strike (rank 7)
+	[47486] = 71, -- Mortal Strike (rank 8)
+	[56636] = 71, -- Taste for Blood (rank 1)
+	[56637] = 71, -- Taste for Blood (rank 2)
+	[56638] = 71, -- Taste for Blood (rank 3)
+	[64976] = 71, -- Juggernaut (rank 1)
+	-- Warrior (Fury)
+	[1464] = 72, -- Slam (rank 1)
+	[8820] = 72, -- Slam (rank 2)
+	[11604] = 72, -- Slam (rank 3)
+	[11605] = 72, -- Slam (rank 4)
+	[23881] = 72, -- Bloodthirst
+	[25241] = 72, -- Slam (rank 5)
+	[25242] = 72, -- Slam (rank 6)
+	[47474] = 72, -- Slam (rank 7)
+	[47475] = 72, -- Slam (rank 8)
+	-- Warrior (Protection)
+	[12809] = 73, -- Concussion Blow
+	[20243] = 73, -- Devastate (rank 1)
+	[30016] = 73, -- Devastate (rank 2)
+	[30022] = 73, -- Devastate (rank 3)
+	[46968] = 73, -- Shockwave
+	[47497] = 73, -- Devastate (rank 4)
+	[47498] = 73, -- Devastate (rank 5)
+	[50227] = 73, -- Sword and Board
+	[50720] = 73, -- Vigilance
+
+	-- Druid (Balance)
+	[24858] = 102, -- Moonkin Form
+	[24907] = 102, -- Moonkin Aura
+	[33831] = 102, -- Force of Nature
+	[48505] = 102, -- Starfall (rank 1)
+	[50516] = 102, -- Typhoon (rank 1)
+	[53199] = 102, -- Starfall (rank 2)
+	[53200] = 102, -- Starfall (rank 3)
+	[53201] = 102, -- Starfall (rank 4)
+	[53223] = 102, -- Typhoon (rank 2)
+	[53225] = 102, -- Typhoon (rank 3)
+	[53226] = 102, -- Typhoon (rank 4)
+	[61384] = 102, -- Typhoon (rank 5)
+	-- Druid (Feral DPS)
+	[33876] = 103, -- Mangle Cat (rank 1)
+	[33982] = 103, -- Mangle Cat (rank 2)
+	[33983] = 103, -- Mangle Cat (rank 3)
+	[48565] = 103, -- Mangle Cat (rank 4)
+	[48566] = 103, -- Mangle Cat (rank 5)
+	-- Druid (Feral Tank)
+	[33878] = 104, -- Mangle Bear (rank 1)
+	[33986] = 104, -- Mangle Bear (rank 2)
+	[33987] = 104, -- Mangle Bear (rank 3)
+	[48563] = 104, -- Mangle Bear (rank 4)
+	[48564] = 104, -- Mangle Bear (rank 5)
+	-- Druid (Restoration)
+	[18562] = 105, -- Swiftmend
+	[33891] = 105, -- Tree of Life
+	[48438] = 105, -- Wild Growth (rank 1)
+	[53248] = 105, -- Wild Growth (rank 2)
+	[53249] = 105, -- Wild Growth (rank 3)
+	[53251] = 105, -- Wild Growth (rank 4)
+
+	-- Death Knight (Blood)
+	[45902] = 250, -- Blood Strike (rank 1)
+	[49016] = 250, -- Hysteria
+	[49028] = 250, -- Dancing Rune Weapon
+	[49926] = 250, -- Blood Strike (rank 2)
+	[49927] = 250, -- Blood Strike (rank 3)
+	[49928] = 250, -- Blood Strike (rank 4)
+	[49929] = 250, -- Blood Strike (rank 5)
+	[49930] = 250, -- Blood Strike (rank 6)
+	[50452] = 250, -- Bloodworms
+	[53137] = 250, -- Abomination's Might (rank 1)
+	[53138] = 250, -- Abomination's Might (rank 2)
+	[55050] = 250, -- Heart Strike (rank 1)
+	[55233] = 250, -- Vampiric Blood
+	[55258] = 250, -- Heart Strike (rank 2)
+	[55259] = 250, -- Heart Strike (rank 3)
+	[55260] = 250, -- Heart Strike (rank 4)
+	[55261] = 250, -- Heart Strike (rank 5)
+	[55262] = 250, -- Heart Strike (rank 6)
+	-- Death Knight (Frost)
+	[49143] = 251, -- Frost Strike (rank 1)
+	[49184] = 251, -- Howling Blast (rank 1)
+	[49203] = 251, -- Hungering Cold
+	[51271] = 251, -- Unbreakable Armor
+	[51409] = 251, -- Howling Blast (rank 2)
+	[51410] = 251, -- Howling Blast (rank 3)
+	[51411] = 251, -- Howling Blast (rank 4)
+	[51416] = 251, -- Frost Strike (rank 2)
+	[51417] = 251, -- Frost Strike (rank 3)
+	[51418] = 251, -- Frost Strike (rank 4)
+	[51419] = 251, -- Frost Strike (rank 5)
+	[55268] = 251, -- Frost Strike (rank 6)
+	[55610] = 251, -- Improved Icy Talons
+	-- Death Knight (Unholy)
+	[49206] = 252, -- Summon Gargoyle
+	[49222] = 252, -- Bone Shield
+	[51052] = 252, -- Anti-Magic Zone
+	[51726] = 252, -- Ebon Plague (rank 1)
+	[51734] = 252, -- Ebon Plague (rank 2)
+	[51735] = 252, -- Ebon Plague (rank 3)
+	[55090] = 252, -- Scourge Strike (rank 1)
+	[55265] = 252, -- Scourge Strike (rank 2)
+	[55270] = 252, -- Scourge Strike (rank 3)
+	[55271] = 252, -- Scourge Strike (rank 4)
+	[63583] = 252, -- Desolation (rank 1)
+	[66800] = 252, -- Desolation (rank 2)
+	[66801] = 252, -- Desolation (rank 3)
+	[66802] = 252, -- Desolation (rank 4)
+	[66803] = 252, -- Desolation (rank 5)
+
+	-- Hunter (Beast Mastery)
+	[19574] = 253, -- Bestial Wrath
+	[19577] = 253, -- Intimidation
+	[19578] = 253, -- Spirit Bond (rank 1)
+	[20895] = 253, -- Spirit Bond (rank 2)
+	[53257] = 253, -- Cobra Strikes
+	-- Hunter (Marksmanship)
+	[19506] = 254, -- Trueshot Aura
+	[34490] = 254, -- Silecing Shot
+	[53209] = 254, -- Chimera Shot
+	-- Hunter (Survival)
+	[3674] = 255, -- Black Arrow (rank 1)
+	[19386] = 255, -- Wyvern Sting (rank 1)
+	[24132] = 255, -- Wyvern Sting (rank 2)
+	[24133] = 255, -- Wyvern Sting (rank 3)
+	[27068] = 255, -- Wyvern Sting (rank 4)
+	[49011] = 255, -- Wyvern Sting (rank 5)
+	[49012] = 255, -- Wyvern Sting (rank 6)
+	[53301] = 255, -- Explosive Shot (rank 1)
+	[60051] = 255, -- Explosive Shot (rank 2)
+	[60052] = 255, -- Explosive Shot (rank 3)
+	[60053] = 255, -- Explosive Shot (rank 4)
+	[63668] = 255, -- Black Arrow (rank 2)
+	[63669] = 255, -- Black Arrow (rank 3)
+	[63670] = 255, -- Black Arrow (rank 4)
+	[63671] = 255, -- Black Arrow (rank 5)
+	[63672] = 255, -- Black Arrow (rank 6)
+
+	-- Priest (Discipline)
+	[10060] = 256, -- Power Infusion
+	[33206] = 256, -- Pain Suppression
+	[47540] = 256, -- Penance (rank 1)
+	[52795] = 256, -- Borrowed Time (rank 1)
+	[52797] = 256, -- Borrowed Time (rank 2)
+	[52798] = 256, -- Borrowed Time (rank 3)
+	[52799] = 256, -- Borrowed Time (rank 4)
+	[52800] = 256, -- Borrowed Time (rank 5)
+	[53005] = 256, -- Penance (rank 2)
+	[53006] = 256, -- Penance (rank 3)
+	[53007] = 256, -- Penance (rank 4)
+	-- Priest (Holy)
+	[724]   = 257, -- Lightwell (rank 1)
+	[20711] = 257, -- Spirit of Redemption
+	[27870] = 257, -- Lightwell (rank 2)
+	[27871] = 257, -- Lightwell (rank 3)
+	[27875] = 257, -- Lightwell (rank 4)
+	[34861] = 257, -- Circle of Healing (rank 1)
+	[34863] = 257, -- Circle of Healing (rank 2)
+	[34864] = 257, -- Circle of Healing (rank 3)
+	[34865] = 257, -- Circle of Healing (rank 4)
+	[34866] = 257, -- Circle of Healing (rank 5)
+	[47788] = 257, -- Guardian Spirit
+	[48086] = 257, -- Lightwell (rank 5)
+	[48087] = 257, -- Lightwell (rank 6)
+	[48088] = 257, -- Circle of Healing (rank 6)
+	[48089] = 257, -- Circle of Healing (rank 7)
+	-- Priest (Shadow)
+	[15286] = 258, -- Vampiric Embrace
+	[15473] = 258, -- Shadowform
+	[15487] = 258, -- Silence
+	[34914] = 258, -- Vampiric Touch (rank 1)
+	[34916] = 258, -- Vampiric Touch (rank 2)
+	[34917] = 258, -- Vampiric Touch (rank 3)
+	[47585] = 258, -- Dispersion
+	[48159] = 258, -- Vampiric Touch (rank 4)
+	[48160] = 258, -- Vampiric Touch (rank 5)
+
+	-- Rogue (Assassination)
+	[1329]  = 259, -- Mutilate (rank 1)
+	[34411] = 259, -- Mutilate (rank 2)
+	[34412] = 259, -- Mutilate (rank 3)
+	[34413] = 259, -- Mutilate (rank 4)
+	[48663] = 259, -- Mutilate (rank 5)
+	[48666] = 259, -- Mutilate (rank 6)
+	[51662] = 259, -- Hunger For Blood
+	[52910] = 259, -- Turn the Tables (rank 3)
+	[52914] = 259, -- Turn the Tables (rank 1)
+	[52915] = 259, -- Turn the Tables (rank 2)
+	[58427] = 259, -- Overkill
+	-- Rogue (Combat)
+	[13750] = 260, -- Adrenaline Rush
+	[13877] = 260, -- Blade Flurry
+	[51690] = 260, -- Killing Spree
+	[58683] = 260, -- Savage Combat (rank 2)
+	[58684] = 260, -- Savage Combat (rank 1)
+	-- Rogue (Subtlety)
+	[14183] = 261, -- Premeditation
+	[16511] = 261, -- Hemorrhage
+	[31221] = 261, -- Master of Subtlety (rank 1)
+	[31222] = 261, -- Master of Subtlety (rank 2)
+	[31223] = 261, -- Master of Subtlety (rank 3)
+	[36554] = 261, -- Shadowstep
+	[51713] = 261, -- Shadow Dance
+
+	-- Shaman (Elemental)
+	[16166] = 262, -- Elemental Mastery
+	[30706] = 262, -- Totem of Wrath (rank 1)
+	[51466] = 262, -- Elemental Oath (rank 1)
+	[51470] = 262, -- Elemental Oath (rank 2)
+	[51490] = 262, -- Thunderstorm (rank 1)
+	[57720] = 262, -- Totem of Wrath (rank 2)
+	[57721] = 262, -- Totem of Wrath (rank 3)
+	[57722] = 262, -- Totem of Wrath (rank 4)
+	[59156] = 262, -- Thunderstorm (rank 2)
+	[59158] = 262, -- Thunderstorm (rank 3)
+	[59159] = 262, -- Thunderstorm (rank 4)
+	-- Shaman (Enhancement)
+	[17364] = 263, -- Stormstrike
+	[30802] = 263, -- Unleashed Rage (rank 1)
+	[30808] = 263, -- Unleashed Rage (rank 2)
+	[30809] = 263, -- Unleashed Rage (rank 3)
+	[30823] = 263, -- Shamanistic Rage
+	[51533] = 263, -- Feral Spirit
+	[53817] = 263, -- Maelstrom Weapon
+	[60103] = 263, -- Lava Lash
+	-- Shaman (Restoration)
+	[974]   = 264, -- Earth Shield (rank 1)
+	[16190] = 264, -- Mana Tide Totem
+	[32593] = 264, -- Earth Shield (rank 2)
+	[32594] = 264, -- Earth Shield (rank 3)
+	[49283] = 264, -- Earth Shield (rank 4)
+	[49284] = 264, -- Earth Shield (rank 5)
+	[51886] = 264, -- Cleanse Spirit
+	[61295] = 264, -- Riptide (rank 1)
+	[61299] = 264, -- Riptide (rank 2)
+	[61300] = 264, -- Riptide (rank 3)
+	[61301] = 264, -- Riptide (rank 4)
+
+	-- Warlock (Affliction)
+	[18220] = 265, -- Dark Pact (rank 1)
+	[18937] = 265, -- Dark Pact (rank 2)
+	[18938] = 265, -- Dark Pact (rank 3)
+	[27265] = 265, -- Dark Pact (rank 4)
+	[30108] = 265, -- Unstable Affliction (rank 1)
+	[30404] = 265, -- Unstable Affliction (rank 2)
+	[30405] = 265, -- Unstable Affliction (rank 3)
+	[47841] = 265, -- Unstable Affliction (rank 4)
+	[47843] = 265, -- Unstable Affliction (rank 5)
+	[48181] = 265, -- Haunt (rank 1)
+	[59092] = 265, -- Dark Pact (rank 5)
+	[59161] = 265, -- Haunt (rank 2)
+	[59163] = 265, -- Haunt (rank 3)
+	[59164] = 265, -- Haunt (rank 4)
+	-- Warlock (Demonology)
+	[30146] = 266, -- Summon Felguard
+	[47241] = 266, -- Metamorphosis
+	[47383] = 266, -- Molten Core (rank 1)
+	[48090] = 266, -- Demonic Pact
+	[59672] = 266, -- Metamorphosis
+	[63165] = 266, -- Decimation (rank 1)
+	[63167] = 266, -- Decimation (rank 2)
+	[71162] = 266, -- Molten Core (rank 2)
+	[71165] = 266, -- Molten Core (rank 3)
+	-- Warlock (Destruction)
+	[17962] = 267, -- Conflagrate
+	[30283] = 267, -- Shadowfury (rank 1)
+	[30299] = 267, -- Nether Protection (rank 1)
+	[30301] = 267, -- Nether Protection (rank 2)
+	[30302] = 267, -- Nether Protection (rank 3)
+	[30413] = 267, -- Shadowfury (rank 2)
+	[30414] = 267, -- Shadowfury (rank 3)
+	[47846] = 267, -- Shadowfury (rank 4)
+	[47847] = 267, -- Shadowfury (rank 5)
+	[50796] = 267, -- Chaos Bolt (rank 1)
+	[59170] = 267, -- Chaos Bolt (rank 2)
+	[59171] = 267, -- Chaos Bolt (rank 3)
+	[59172] = 267 -- Chaos Bolt (rank 4)
+}
+
+-- table used to determine role from spec
+ns.spec_to_role = {
+	-- Mage
+	[62] = "DAMAGER", -- Arcane
+	[63] = "DAMAGER", -- Fire
+	[64] = "DAMAGER", -- Frost
+	-- Paladin
+	[65] = "HEALER", -- Holy
+	[66] = "TANK", -- Protection
+	[70] = "DAMAGER", -- Retribution
+	-- Warrior
+	[71] = "DAMAGER", -- Arms
+	[72] = "DAMAGER", -- Fury
+	[73] = "TANK", -- Protection
+	-- Druid
+	[102] = "DAMAGER", -- Balance
+	[103] = "DAMAGER", -- Feral DPS
+	[104] = "TANK", -- Feral Tank
+	[105] = "HEALER", -- Restoration
+	-- Death Knight
+	[250] = "TANK", -- Blood
+	[251] = "DAMAGER", -- Frost
+	[252] = "DAMAGER", -- Unholy
+	-- Hunter
+	[253] = "DAMAGER", -- Beast Mastery
+	[254] = "DAMAGER", -- Markamnship
+	[255] = "DAMAGER", -- Survival
+	-- Priest
+	[256] = "HEALER", -- Discipline
+	[257] = "HEALER", -- Holy
+	[258] = "DAMAGER", -- Shadow
+	-- Rogue
+	[259] = "DAMAGER", -- Assassination
+	[260] = "DAMAGER", -- Combat
+	[261] = "DAMAGER", -- Subtlety
+	-- Shaman
+	[262] = "DAMAGER", -- Elemental
+	[263] = "DAMAGER", -- Enhancement
+	[264] = "HEALER", -- Restoration
+	-- Warlock
+	[265] = "DAMAGER", -- Affliction
+	[266] = "DAMAGER", -- Destruction
+	[267] = "DAMAGER" -- Demonology
+}
 
 -------------------------------------------------------------------------------
 -- grouped and custom units

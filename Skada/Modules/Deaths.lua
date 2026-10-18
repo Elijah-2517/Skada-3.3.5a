@@ -55,6 +55,7 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 	-- logger functions
 	--------------------------------------------------------------------------
 
+	local guidToUnit = Private.guidToUnit
 	local data = {} -- holds what's to log
 	local function log_deathlog(set, override)
 		if not set or (set == Skada.total and not P.totalidc) then return end
@@ -69,9 +70,10 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 			deathlog = actor.deathlog[1]
 		end
 
-		-- seet actor maxhp if not already set
+		-- set actor maxhp if not already set
+		local unit = guidToUnit[actor.id] or data.actorname
 		if not deathlog.hpm or deathlog.hpm == 0 then
-			_, _, deathlog.hpm = UnitHealthInfo(data.actorname, actor.id, "group")
+			_, _, deathlog.hpm = UnitHealthInfo(unit, actor.id, "group")
 			deathlog.hpm = deathlog.hpm or 0
 		end
 
@@ -80,7 +82,7 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 		log.src = data.srcName
 		log.cri = data.critical
 		log.time = Skada._Time or GetTime()
-		_, log.hp = UnitHealthInfo(data.actorname, actor.id, "group")
+		_, log.hp = UnitHealthInfo(unit, actor.id, "group")
 
 		if data.amount then
 			deathlog.time = log.time
@@ -938,12 +940,20 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 
 		if not log then return end
 
+		-- Netic fix (issues #115, #118): coerce spell id to number before
+		-- math.abs. Older Skada builds and third-party addons writing into
+		-- deathlog entries can leave log.id as a string in SavedVariables,
+		-- which crashes the announcer with:
+		--   bad argument #1 to 'abs' (number expected, got string)
+		local spell_id = tonumber(log.id)
+		local spell_name = spell_id and spellnames[abs(spell_id)] or L["Unknown"]
+
 		-- prepare the output.
 		local output = format(
 			(channel == "SELF") and announce_fmt1 or announce_fmt2,
 			log.src or L["Unknown"], -- source name
 			actorname or L["Unknown"], -- actor name
-			log.id and spellnames[abs(log.id)] or L["Unknown"], -- spell name
+			spell_name, -- spell name
 			log.amt and Skada:FormatNumber(0 - log.amt, 1) or 0 -- spell amount
 		)
 

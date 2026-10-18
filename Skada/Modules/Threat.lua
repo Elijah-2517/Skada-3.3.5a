@@ -17,7 +17,7 @@ Skada:RegisterModule("Threat", function(L, P, _, _, M, O)
 		local CheckInteractDistance, ItemRefTooltip = CheckInteractDistance, ItemRefTooltip
 		local GetItemInfo, IsItemInRange = GetItemInfo, IsItemInRange
 		local UnitGUID, UnitClass = UnitGUID, UnitClass
-		local UnitFullName, guidToClass = Private.UnitFullName, Private.guidToClass
+		local UnitFullname, guidToClass = Private.UnitFullname, Private.guidToClass
 		local nr, max_threat, aggro_coef, my_percent = 0, 0, 1.1, nil
 		local last_warn, last_time = Skada._time, 0
 		local threat_table, we_should_warn = {}, false
@@ -62,7 +62,7 @@ Skada:RegisterModule("Threat", function(L, P, _, _, M, O)
 			-- ignore pets
 			if mode.db.ignorePets and owner then return end
 
-			local actorname = UnitFullName(unit, owner, true)
+			local actorname = UnitFullname(unit, owner, true)
 			local actor = threat_table[actorname]
 
 			if not actor then

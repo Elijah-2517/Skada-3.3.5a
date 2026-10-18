@@ -1,6 +1,11 @@
 MIT License
 
-Copyright (c) 2021 Kader Bouyakoub
+Copyright (c) 2021 Kader Bouyakoub (bkader) — original Skada-WoTLK
+Copyright (c) 2026 NeticSoul — Skada-WotLK-Netic fork
+
+Skada itself originates from "Skada Damage Meter" by Zarnivoop and
+contributors. This fork is based on `bkader/Skada-WoTLK` and remains
+under the same MIT License.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
