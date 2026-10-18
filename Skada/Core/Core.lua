@@ -2144,9 +2144,10 @@ do
 		return ret
 	end
 
-	function Skada:GetSetLabel(set, dye)
+	function Skada:GetSetLabel(set, dye, plain)
 		if not set then return "" end
-		return set_label_format(set.name, set.starttime, set.endtime or time(), nil, dye)
+		local name = set.snapshotid and not plain and "\124TInterface\\TargetingFrame\\UI-RaidTargetingIcon_8:14:14\124t " .. (set.name or L["Unknown"]) or set.name
+		return set_label_format(name, set.starttime, set.endtime or time(), nil, dye)
 	end
 
 	function set_window_mode_title(self)

@@ -522,7 +522,7 @@ do
 		if window.parentmode and title ~= window.parentmode.localeName then
 			title = format("%s - %s", window.parentmode.localeName, title)
 		end
-		local label = (modename == L["Improvement"]) and self.userName or Skada:GetSetLabel(set)
+		local label = (modename == L["Improvement"]) and self.userName or Skada:GetSetLabel(set, nil, true)
 		maxlines = maxlines or 10
 
 		local firstline = format(L["Skada: %s for %s:"], EscapeStr(title, true), label)

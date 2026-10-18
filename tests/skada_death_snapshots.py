@@ -175,6 +175,30 @@ class DeathSnapshotTests(unittest.TestCase):
         assert(Skada.modes_set and Skada.total.damage==100)
         ''')
 
+    def test_only_snapshot_labels_have_native_skull_and_reports_stay_plain(self):
+        core = (ADDON / "Core/Core.lua").read_text(encoding="utf-8-sig")
+        start = core.index("\tlocal function set_label_format(")
+        end = core.index("\n\tfunction set_window_mode_title", start)
+        self.lua.execute('''
+        local min,max,format,strmatch=math.min,math.max,string.format,string.match
+        local date=function() return '12:00' end
+        local SecondsToTime=function() return '1m' end
+        ''' + core[start:end])
+        self.check('''
+        local normal={name='Boss',starttime=10,endtime=100}
+        local snapshot={name='Boss - Death snapshot',starttime=10,endtime=100,snapshotid='death:10:100'}
+        local icon='|TInterface\\\\TargetingFrame\\\\UI-RaidTargetingIcon_8:14:14|t '
+        for fmt=1,8 do
+         P.setformat=fmt
+         local combined,name=Skada:GetSetLabel(snapshot)
+         assert(name==icon..snapshot.name and combined:find(icon,1,true)==1)
+         assert(Skada:GetSetLabel(snapshot,true):find(icon,1,true)==1)
+         assert(not Skada:GetSetLabel(normal):find('|T',1,true))
+         assert(not Skada:GetSetLabel(snapshot,nil,true):find('|T',1,true))
+        end
+        assert(snapshot.name=='Boss - Death snapshot' and snapshot.starttime==10)
+        ''')
+
 
 if __name__ == "__main__":
     unittest.main()
