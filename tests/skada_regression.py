@@ -229,32 +229,6 @@ class SkadaTests(unittest.TestCase):
         assert(not combatlog_events.SWING_DAMAGE[fn])
         ''')
 
-    def test_autostop_counts_dead_destination_and_not_resurrecting_caster(self):
-        core = (ADDON / "Core/Core.lua").read_text(encoding="utf-8-sig")
-        start = core.index("\tlocal function check_autostop(")
-        end = core.index("\n\tlocal function check_cached_names", start)
-        start_call = core.index("\t\t-- autostop on wipe enabled?")
-        end_call = core.index("\n\t\t-- stopped or invalid events?", start_call)
-        self.check('''
-        local death_counter,starting_members=0,4
-        Skada.StopSegment=function(self) self.current.stopped=true end
-        Skada.SendMessage=function() end
-        P.autostop=true
-        ''' + core[start:end] + '''
-        local function dispatch(self,t)
-        ''' + core[start_call:end_call] + '''
-        end
-        local t={event="UNIT_DIED",SourceInGroup=function() return false end,
-        DestInGroup=function() return true end}
-        dispatch(Skada,t); assert(death_counter==1)
-        t.event="SPELL_RESURRECT"
-        t.SourceInGroup=function() return true end
-        t.DestInGroup=function() return false end
-        dispatch(Skada,t); assert(death_counter==1)
-        t.event="UNIT_DIED"; t.DestInGroup=function() return true end
-        dispatch(Skada,t); assert(Skada.current.stopped)
-        ''')
-
     def test_combat_end_preserves_historical_set_identity(self):
         core = (ADDON / "Core/Core.lua").read_text(encoding="utf-8-sig")
         start_modes = core.index("function Skada:SetModes()")

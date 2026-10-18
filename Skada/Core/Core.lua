@@ -18,7 +18,7 @@ local UnitGUID, GameTooltip, ReloadUI = UnitGUID, GameTooltip, ReloadUI
 local IsShiftKeyDown, IsControlKeyDown = IsShiftKeyDown, IsControlKeyDown
 local SecondsToTime, time, GetTime = SecondsToTime, time, GetTime
 local IsInGroup, IsInRaid, IsInPvP = Skada.IsInGroup, Skada.IsInRaid, Skada.IsInPvP
-local GetNumGroupMembers, CheckDuplicate = Skada.GetNumGroupMembers, Private.CheckDuplicate
+local CheckDuplicate = Private.CheckDuplicate
 local L, callbacks, O = Skada.Locale, Skada.callbacks, Skada.options.args
 local P, G, _
 
@@ -2445,6 +2445,8 @@ function Skada:OnEnable()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
 	self:RegisterEvent("PLAYER_LEAVING_WORLD")
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
+	self:RegisterEvent("UNIT_HEALTH")
+	self:RegisterEvent("UNIT_FLAGS", "UNIT_HEALTH")
 	self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "CheckZone")
 	self:RegisterBucketEvent("UNIT_PET", 0.2)
 	self:RegisterBucketEvent("UNIT_ENTERED_VEHICLE", 0.1, "CheckVehicle")
@@ -2797,7 +2799,7 @@ end
 
 do
 	local tentative, tentative_set, tentative_timer
-	local death_counter, starting_members = 0, 0
+	local dead_members, starting_members = {}, 0
 
 	-- Edit Skada\Core\Tables.lua
 	local ignored_events = Skada.ignored_events
@@ -2856,9 +2858,6 @@ do
 	function combat_start()
 		Skada._time = time()
 
-		death_counter = 0
-		starting_members = GetNumGroupMembers()
-
 		if tentative_timer then
 			Skada:CancelTimer(tentative_timer, true)
 			tentative_timer = nil
@@ -2867,6 +2866,13 @@ do
 		if update_timer then
 			Skada:Debug("\124cffffbb00EndSegment\124r: StartCombat")
 			combat_end()
+		end
+
+		-- Snapshot the roster, including the player and excluding pets.
+		wipe(dead_members)
+		starting_members = 0
+		for unit in Skada.UnitIterator(true) do
+			starting_members = starting_members + 1
 		end
 
 		if Skada.current == nil then
@@ -3047,16 +3053,30 @@ do
 		end
 	end
 
-	local function check_autostop(set, event, src_is_interesting_nopets)
-		if event == "UNIT_DIED" and src_is_interesting_nopets then
-			death_counter = death_counter + 1
-			-- If we reached the treshold for stopping the segment, do so.
-			if death_counter >= starting_members * 0.5 and not set.stopped then
-				Skada:SendMessage("COMBAT_PLAYER_WIPE", set)
-				Skada:StopSegment(L["Stopping for wipe."])
+	local function check_autostop(set, t)
+		if not Skada.inCombat or set.stopped or starting_members == 0 or not t.dstGUID or not t:DestInGroup(true) then return end
+		local unit = Skada.GetUnitIdFromGUID(t.dstGUID)
+		if unit and UnitIsFeignDeath(unit) then return end
+
+		-- Keep combat-log deaths even before the unit flags have caught up.
+		dead_members[t.dstGUID] = true
+		local dead = 0
+		for member in Skada.UnitIterator(true) do
+			if not UnitIsFeignDeath(member) and (dead_members[UnitGUID(member)] or UnitIsDeadOrGhost(member)) then
+				dead = dead + 1
 			end
-		elseif event == "SPELL_RESURRECT" and src_is_interesting_nopets then
-			death_counter = max(0, death_counter - 1)
+		end
+		if dead >= starting_members * 0.5 then
+			Skada:SendMessage("COMBAT_PLAYER_WIPE", set)
+			Skada:StopSegment(L["Stopping for wipe."])
+		end
+	end
+
+	function Skada:UNIT_HEALTH(_, unit)
+		if not self.inCombat or not unit then return end
+		local guid = UnitGUID(unit)
+		if guid and dead_members[guid] and UnitHealth(unit) > 0 and not UnitIsDeadOrGhost(unit) then
+			dead_members[guid] = nil
 		end
 	end
 
@@ -3122,18 +3142,13 @@ do
 		-- current segment not created?
 		if not self.current then return end
 
-		-- autostop on wipe enabled?
-		if P.autostop and (t.event == "UNIT_DIED" or t.event == "SPELL_RESURRECT") then
-			check_autostop(self.current, t.event, t:DestInGroup(true))
-		end
-
 		-- stopped or invalid events?
-		if self.current.stopped or not combatlog_events[t.event] then return end
+		if self.current.stopped or (not combatlog_events[t.event] and t.event ~= "UNIT_DIED") then return end
 
 		self._Time = GetTime()
 		check_cached_names(t)
 
-		for func, flags in next, combatlog_events[t.event] do
+		for func, flags in next, combatlog_events[t.event] or Skada.dummyTable do
 			local fail = false
 
 			if flags.src_is_interesting_nopets then
@@ -3186,5 +3201,10 @@ do
 		end
 
 		check_boss_fight(self.current, t, src_is_interesting, dst_is_interesting)
+
+		-- Record the threshold death before freezing the segment and its phases.
+		if P.autostop and t.event == "UNIT_DIED" then
+			check_autostop(self.current, t)
+		end
 	end
 end
