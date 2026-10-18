@@ -1173,17 +1173,40 @@ end
 -- bossmods callbacks
 
 do
+	local function matches_dbm_encounter(set, mod)
+		if not set or set.snapshotid then return false end
+		local info, id = mod.combatInfo, set.gotboss
+		if type(id) == "number" then
+			if id == info.mob or id == mod.creatureId or id == info.creatureId or (info.killMobs and info.killMobs[id] ~= nil) then return true end
+			for _, creature in ipairs(mod.multiMobPullDetection or info.multiMobPullDetection or Skada.dummyTable) do
+				if id == creature then return true end
+			end
+		end
+		return type(set.mobname) == "string" and type(info.name) == "string" and info.name ~= "" and find(strlower(set.mobname), strlower(info.name), 1, true) ~= nil
+	end
+
+	function Private.WaitsForBossmodVictory(set)
+		local dbm = _G.DBM
+		if not dbm or (dbm.IsEnabled and not dbm:IsEnabled()) or (dbm.Options and dbm.Options.Enabled == false) then return false end
+		for _, mod in ipairs(dbm.Mods or Skada.dummyTable) do
+			local info = mod.combatInfo
+			local creatures = mod.multiMobPullDetection or (info and info.multiMobPullDetection)
+			if info and creatures and #creatures > 1 and (not mod.Options or mod.Options.Enabled ~= false) and matches_dbm_encounter(set, mod) then return true end
+		end
+		return false
+	end
+
 	local function Bossmod_DBM(_, mod, is_wipe, _, event)
 		local success = mod and mod.combatInfo and (not is_wipe or event == "Main CID Down" or event == "All Mobs Down")
-		local set = success and (Skada.current or Skada.last)
-		success = set and not set.success and (set.mobname == mod.combatInfo.name or find(strlower(set.mobname), strlower(mod.combatInfo.name)) ~= nil)
 		if not success then return end
+		local set = matches_dbm_encounter(Skada.current, mod) and Skada.current or matches_dbm_encounter(Skada.last, mod) and Skada.last
+		if not set or set.success then return end
 
 		set.success = true
-		set.gotboss = set.gotboss or mod.combatInfo.creatureId or true
+		set.gotboss = set.gotboss or mod.creatureId or mod.combatInfo.mob or mod.combatInfo.creatureId or true
 		set.mobname = (not set.mobname or set.mobname == L["Unknown"]) and mod.combatInfo.name or set.mobname
 
-		if Skada.tempsets then -- phases
+		if set == Skada.current and Skada.tempsets then -- phases
 			for i = 1, #Skada.tempsets do
 				local s = Skada.tempsets[i]
 				if s and not s.success then
@@ -1196,7 +1219,7 @@ do
 
 		Skada:Debug("\124cffffbb00COMBAT_BOSS_DEFEATED\124r: DBM")
 		Skada:SendMessage("COMBAT_BOSS_DEFEATED", set)
-		Skada:SmartStop(set)
+		if set == Skada.current then Skada:SmartStop(set) end
 	end
 
 	local function Bossmod_BigWigs()

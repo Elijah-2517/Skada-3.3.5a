@@ -2048,6 +2048,11 @@ function Skada:Reset(force)
 	self._time = time()
 	self._Time = GetTime()
 
+	if bossdefeat_timer then
+		self:CancelTimer(bossdefeat_timer, true)
+		bossdefeat_timer = nil
+	end
+
 	if self.current ~= nil then
 		self.current = create_set(L["Current"], self.current, self._time)
 	end
@@ -2499,14 +2504,13 @@ function Skada:OnEnable()
 end
 
 -- called on boss defeat
-local function BossDefeated()
+local function BossDefeated(set)
 	if bossdefeat_timer then
 		Skada:CancelTimer(bossdefeat_timer, true)
 		bossdefeat_timer = nil
 	end
 
-	local set = Skada.current
-	if not set or set.success then return end
+	if not set or set ~= Skada.current or set.success then return end
 
 	set.success = true
 
@@ -2636,6 +2640,7 @@ end
 
 function combat_end()
 	if not Skada.current then return end
+	if bossdefeat_timer then BossDefeated(Skada.current) end
 	Private.ClearTempUnits()
 	wipe(GetCreatureId) -- wipe cached creature IDs
 
@@ -3043,8 +3048,8 @@ do
 		-- boss already detected?
 		if set.gotboss then
 			-- default boss defeated event? (no DBM/BigWigs)
-			if death_events[t.event] and set.gotboss == GetCreatureId(t.dstGUID) then
-				bossdefeat_timer = bossdefeat_timer or Skada:ScheduleTimer(BossDefeated, Skada.bossmod and 1 or 0.1)
+			if death_events[t.event] and set.gotboss == GetCreatureId(t.dstGUID) and not Private.WaitsForBossmodVictory(set) then
+				bossdefeat_timer = bossdefeat_timer or Skada:ScheduleTimer(BossDefeated, Skada.bossmod and 1 or 0.1, set)
 			end
 
 		-- marking set as boss fights relies only on src_is_interesting or dst_is_interesting
