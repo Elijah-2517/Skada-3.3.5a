@@ -66,6 +66,8 @@ Skada:RegisterModule("Damage", function(L, P)
 		local id = GetCreatureId(t.dstGUID)
 		if id == 36897 or id == 36899 then -- Rotface: oozes are merged, not killed.
 			return amount, t.absorbed or 0
+		elseif id == 37695 or id == 37799 then -- Lich King: Drudge Ghoul and Vile Spirit.
+			return amount, t.absorbed or 0
 		elseif princes[id] then
 			local uid = not active_prince and Skada.GetUnitIdFromGUID(t.dstGUID)
 			if (active_prince and active_prince ~= id) or (not active_prince and uid and UnitHealthMax(uid) == 1) then
@@ -1099,16 +1101,13 @@ Skada:RegisterModule("Useful Damage", function(L, P)
 		local actortime = mode_cols.sDPS and actor:GetTime(set)
 
 		for spellid, spell in pairs(spells) do
-			nr = nr + 1
-
-			local d = win:spell(nr, spellid)
-			d.value = P.absdamage and spell.total or spell.amount
-			if spell.o_amt then
-				d.value = max(0, d.value - spell.o_amt)
+			local amount = max(0, (P.absdamage and spell.total or spell.amount) - (spell.o_amt or 0) - (spell.wasted or 0) - (P.absdamage and spell.wastedabs or 0))
+			if amount > 0 then
+				nr = nr + 1
+				local d = win:spell(nr, spellid)
+				d.value = amount
+				format_valuetext(d, mode_cols, total, actortime and (amount / actortime), win.metadata, true)
 			end
-			d.value = max(0, d.value - (spell.wasted or 0) - (P.absdamage and spell.wastedabs or 0))
-
-			format_valuetext(d, mode_cols, total, actortime and (d.value / actortime), win.metadata, true)
 		end
 	end
 
@@ -1133,16 +1132,13 @@ Skada:RegisterModule("Useful Damage", function(L, P)
 		total = actor:GetDamage(true)
 
 		for targetname, target in pairs(targets) do
-			nr = nr + 1
-
-			local d = win:actor(nr, target, target.enemy, targetname)
-			d.value = P.absdamage and target.total or target.amount
-			if target.o_amt then
-				d.value = max(0, d.value - target.o_amt)
+			local amount = max(0, (P.absdamage and target.total or target.amount) - (target.o_amt or 0) - (target.wasted or 0) - (P.absdamage and target.wastedabs or 0))
+			if amount > 0 then
+				nr = nr + 1
+				local d = win:actor(nr, target, target.enemy, targetname)
+				d.value = amount
+				format_valuetext(d, mode_cols, total, actortime and (amount / actortime), win.metadata, true)
 			end
-			d.value = max(0, d.value - (target.wasted or 0) - (P.absdamage and target.wastedabs or 0))
-
-			format_valuetext(d, mode_cols, total, actortime and (d.value / actortime), win.metadata, true)
 		end
 	end
 

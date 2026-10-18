@@ -199,6 +199,25 @@ class DeathSnapshotTests(unittest.TestCase):
         assert(snapshot.name=='Boss - Death snapshot' and snapshot.starttime==10)
         ''')
 
+    def test_snapshot_freezes_actual_lich_king_useful_damage_exclusions(self):
+        self.lua.execute("disabled_modules={}; fresh(); Skada.current.starttime=10; Skada.current.death=0; Skada.current.mobname='Lich King'")
+        for file in ("Core/Prototypes.lua", "Modules/Damage.lua"):
+            self.lua.execute((ADDON / file).read_text(encoding="utf-8-sig"), "Skada", self.lua.globals().Skada)
+        self.check('''
+        hit('37695-a','Ghoul',40)
+        hit('37799-a','Excluded spirit',30)
+        hit('39190-a','Useful spirit',30)
+        hit('36597-a','Lich King',70)
+        die(1)
+        local snapshot=Skada.sets[1]
+        assert(snapshot:GetDamage()==170 and snapshot:GetDamage(nil,true)==100)
+        assert(snapshot.actors.Player:GetDamage(true)==100)
+        hit('36597-a','Lich King',20)
+        assert(Skada.current:GetDamage(nil,true)==120)
+        assert(snapshot:GetDamage(nil,true)==100 and snapshot:GetDPS(true)==100/90)
+        assert(snapshot.actors.Player.damagespells['123.4'].targets.Ghoul.wasted==40)
+        ''')
+
 
 if __name__ == "__main__":
     unittest.main()

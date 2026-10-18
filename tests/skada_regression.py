@@ -81,9 +81,9 @@ function fresh()
  Skada.current=setmetatable({name="Current",actors={}},{__index=Skada.setPrototype})
  Skada.total=setmetatable({name="Total",actors={}},{__index=Skada.setPrototype})
 end
-function hit(id,name,amount,overkill,absorbed,player)
+function hit(id,name,amount,overkill,absorbed,player,spell)
  local t={srcGUID=player or "player",srcName=player or "Player",srcFlags=0,
- dstGUID=id,dstName=name,dstFlags=true,spellid=123,spellstring="123.4",
+ dstGUID=id,dstName=name,dstFlags=true,spellid=spell or 123,spellstring=tostring(spell or 123)..".4",
  amount=amount,overkill=overkill or 0,absorbed=absorbed or 0}
  function t:DestIsBoss() return false end
  for _,h in ipairs(Skada.handlers) do if h.events.SPELL_DAMAGE then h.fn(t) end end
@@ -101,7 +101,7 @@ class SkadaTests(unittest.TestCase):
     def setUp(self):
         self.load_runtime()
 
-    def load_runtime(self, disabled=()):
+    def load_runtime(self, disabled=(), grouped_source=None):
         self.lua = LuaRuntime(unpack_returned_tuples=True)
         self.lua.execute(SETUP)
         self.lua.globals().disabled_modules = self.lua.table_from({name: True for name in disabled})
@@ -109,6 +109,8 @@ class SkadaTests(unittest.TestCase):
         start = source.index("-- heroic valkyr damage")
         end = source.index("-- pet functions", start)
         self.lua.execute("local Private=Skada.Private\n" + source[start:end])
+        if grouped_source:
+            self.lua.execute(grouped_source + "\nSkada.grouped_units=grouped_units")
         for name in ("Core/Prototypes.lua", "Modules/Damage.lua", "Modules/Enemies.lua"):
             self.lua.execute((ADDON / name).read_text(encoding="utf-8-sig"), "Skada", self.lua.globals().Skada)
 
@@ -690,6 +692,97 @@ class SkadaTests(unittest.TestCase):
         win.rows={}
         mode.modules["Target List"].modules["Spell List"]:Update(win,Skada.current)
         assert(win.rows[1].id=="123.4" and win.rows[1].value==50)
+        ''')
+
+    def test_lich_king_exclusions_keep_raw_damage_and_useful_spirits_across_segments(self):
+        for difficulty in ("10n", "25n", "10h", "25h"):
+            for absorbs in (False, True):
+                for total_details in (False, True):
+                    with self.subTest(difficulty=difficulty, absorbs=absorbs, details=total_details):
+                        self.load_runtime()
+                        self.lua.globals().diff = difficulty
+                        self.lua.globals().P.absdamage = absorbs
+                        self.lua.globals().P.totalidc = total_details
+                        self.check('''
+                        Skada.phase=setmetatable({actors={}},{__index=Skada.setPrototype})
+                        hit('37695-a','Drudge Ghoul',40,5,10,'A')
+                        hit('37799-a','Excluded spirit',30,3,11,'B')
+                        hit('39190-a','Useful spirit',30,0,5,'A')
+                        hit('36701-a','Raging Spirit',20,0,0,'B')
+                        hit('36597-a','Lich King',100,0,0,'A')
+                        hit('36609-a','Valkyr',70,0,0,'B')
+                        hit('27733-a','Drudge Ghoul',10,0,0,'A') -- same name, another dungeon
+                        local heroic=diff=='10h' or diff=='25h'
+                        local expected=(heroic and 210 or 230)+(P.absdamage and 5 or 0)
+                        for _,set in ipairs({Skada.current,Skada.total,Skada.phase}) do
+                         assert(set.damage==300 and set.overkill==8)
+                         assert(set:GetDamage()==(P.absdamage and 326 or 300))
+                         assert(set:GetDamage(nil,true)==expected)
+                         assert(set.actors.A:GetDamage(true)==140+(P.absdamage and 5 or 0))
+                         assert(set.actors.B:GetDamage(true)==(heroic and 70 or 90))
+                         assert(set:GetDPS(true)==expected/10)
+                        end
+                        hit('36916-a','Drudge Ghoul',10)
+                        assert(Skada.current:GetDamage(nil,true)==expected+10) -- another same-name NPC
+                        ''')
+
+    def test_useful_rows_and_actual_tooltip_hide_excluded_targets_and_spells(self):
+        self.check('''
+        hit('37695-a','Ghoul',40,0,0,'Player',777)
+        hit('37799-a','Excluded spirit',30,0,0,'Player',777)
+        hit('39190-a','Useful spirit',30)
+        hit('36597-a','Lich King',70)
+        local mode=Skada.modules['Useful Damage']
+        win={actorname='Player',actorid='player',actorclass='MAGE',metadata={maxvalue=0},rows={}}
+        function win:reset() self.rows={}; self.dataset=self.rows; self.metadata.maxvalue=0 end
+        function win:spell(n,id) self.rows[n]={id=id,label=id}; return self.rows[n] end
+        function win:actor(n,actor,enemy,name) self.rows[n]={id=name,label=name}; return self.rows[n] end
+        function win:GetSelectedSet() return Skada.current end
+        Skada.FormatNumber=function(_,n) return tostring(n) end
+        Skada.FormatPercent=function(_,n,total) return tostring(100*n/total) end
+        Skada.FormatValueCols=function(_,amount,dps,percent) return amount..' ('..percent..'%)' end
+        mode.modules['Spell List']:Update(win,Skada.current)
+        assert(#win.rows==1 and win.rows[1].id=='123.4' and win.rows[1].value==100)
+        win:reset(); mode.modules['Target List']:Update(win,Skada.current)
+        assert(#win.rows==2)
+        for _,row in ipairs(win.rows) do
+         assert(row.id=='Useful spirit' or row.id=='Lich King')
+         assert(row.valuetext==tostring(row.value)..' ('..tostring(row.value)..'%)')
+        end
+        ''')
+        core = (ADDON / "Core/Core.lua").read_text(encoding="utf-8-sig")
+        start = core.index("\tlocal function value_sort(")
+        end = core.index("\n\tlocal total_noclick", start)
+        self.check('''
+        HIGHLIGHT_FONT_COLOR={r=1,g=1,b=1}
+        IsShiftKeyDown=function() return false end; P.tooltiprows=10
+        local tsort=table.sort
+        ''' + core[start:end] + '''
+        local tooltip={labels={},AddLine=function() end}
+        function tooltip:AddDoubleLine(label,value) self.labels[label]=value end
+        win.ttwin=win
+        add_subview_lines(tooltip,win,Skada.modules['Useful Damage'].modules['Target List'],'player','Player','MAGE')
+        assert(tooltip.labels['Lich King'] and tooltip.labels['Useful spirit'])
+        assert(not tooltip.labels.Ghoul and not tooltip.labels['Excluded spirit'])
+        win:reset(); Skada.modules.Damage.modules['Target List']:Update(win,Skada.current)
+        assert(#win.rows==4,'ordinary Damage lost targets')
+        local sum=0 for _,row in ipairs(win.rows) do sum=sum+row.value end
+        assert(sum==170)
+        ''')
+
+    def test_real_important_targets_group_keeps_the_correct_spirit(self):
+        source = (ADDON / "Core/Tables.lua").read_text(encoding="utf-8-sig")
+        start = source.index("\tlocal grouped_units = {")
+        end = source.index("\n\t}", start) + len("\n\t}")
+        self.load_runtime(grouped_source=source[start:end])
+        self.check('''
+        local grouped_units=Skada.grouped_units
+        assert(grouped_units[39190] and grouped_units[36701])
+        assert(not grouped_units[37695] and not grouped_units[37799])
+        hit('37695-a','Ghoul',40); hit('37799-a','Excluded spirit',30)
+        hit('39190-a','Useful spirit',30); hit('36701-a','Raging Spirit',20)
+        hit('36597-a','Lich King',100)
+        assert(Skada.current.actors['Important targets'].damaged==150)
         ''')
 
     def test_all_addon_sources_compile_as_lua51(self):
