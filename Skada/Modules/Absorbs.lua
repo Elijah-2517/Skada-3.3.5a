@@ -711,8 +711,9 @@ Skada:RegisterModule("Absorbs", function(L, P, G)
 	end
 
 	local function spell_damage(t)
+		if not t.absorbed or t.absorbed <= 0 then return end
 		local dstName = t.dstName and Skada:FixPetsName(t.dstGUID, t.dstName, t.dstFlags)
-		if dstName and shields[dstName] and t.absorbed and t.absorbed > 0 then
+		if dstName and shields[dstName] then
 			process_absorb(dstName, t, t.amount > t.absorbed)
 		end
 	end

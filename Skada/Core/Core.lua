@@ -762,7 +762,7 @@ function Window:Wipe(changed)
 		self.display:Wipe(self)
 	end
 
-	self.changed = changed or self.changed
+	self.changed = true
 	if self.child and self.db.childmode == 1 then
 		self.child:Wipe(changed)
 	end
@@ -2096,7 +2096,12 @@ function Skada:UpdateDisplay(force)
 	for i = 1, #windows do
 		local win = windows[i]
 		if win and (self.changed or win.changed or (self.current and (win.selectedset == "current" or win.selectedset == "total"))) then
-			win:UpdateDisplay()
+			-- Live events do not change a completed fight or a death snapshot.
+			local frozen = not force and not win.changed and self.inCombat and win.selectedmode
+				and win.selectedset ~= "current" and win.selectedset ~= "total" and win:GetSelectedSet()
+			if not frozen or not frozen.endtime then
+				win:UpdateDisplay()
+			end
 		end
 	end
 
@@ -2889,7 +2894,7 @@ do
 
 	local function combat_tick()
 		Skada._time = time()
-		if not Skada.disabled and Skada.current and not InCombatLockdown() and not IsGroupInCombat() and Skada.insType ~= "pvp" and Skada.insType ~= "arena" then
+		if Skada.current and not InCombatLockdown() and not IsGroupInCombat() and Skada.insType ~= "pvp" and Skada.insType ~= "arena" then
 			Skada:Debug("\124cffffbb00EndSegment\124r: Combat Tick")
 			combat_end()
 		end
