@@ -1468,6 +1468,19 @@ do
 			end
 		end
 
+		-- Talent inspection may finish after the actor was first recorded.
+		if self.validclass[actor.class] and (actor.id == self.userGUID or guidToClass[actor.id]) then
+			local spec, talent = GetUnitSpec(actor.id)
+			if spec and spec > 0 and (actor.spec ~= spec or actor.talent ~= talent) then
+				actor.spec, actor.talent = spec, talent
+				actor.role = GetUnitRole(actor.id)
+				if not actor.role or actor.role == "NONE" then
+					actor.role = spec_to_role[spec]
+				end
+				actor.__mod = true
+			end
+		end
+
 		-- add more details to the actor...
 		if self.validclass[actor.class] and (actor.spec == nil or actor.role == nil or actor.role == "NONE") then
 			-- missing spec?
