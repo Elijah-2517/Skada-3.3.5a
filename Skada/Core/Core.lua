@@ -1888,23 +1888,28 @@ do
 	end
 
 	function convert_version(ver)
-		return tonumber(type(ver) == "string" and gsub(ver, "%.", "", 2) or ver) or 0
+		if type(ver) ~= "string" then return end
+		local major, minor, patch, netic, fixes = ver:match("^(%d+)%.(%d+)%.(%d+)%-netic%.(%d+)%+fixes%.(%d+)$")
+		if major then
+			return {tonumber(major), tonumber(minor), tonumber(patch), tonumber(netic), tonumber(fixes)}
+		end
 	end
 
 	function Skada:VersionCheck(sender, version)
-		if sender and version then
-			version = convert_version(version)
-			local ver = self.version_num or convert_version(self.version)
-			self.version_num = ver
-			if not (version and ver) or self.versionChecked then
-				return
-			elseif version > ver then
+		if not sender or self.versionChecked then return end
+		local remote = convert_version(version)
+		local current = convert_version(self.version)
+		-- Other Skada builds use their own release numbering.
+		if not remote or not current then return end
+		for i = 1, #current do
+			if remote[i] > current[i] then
 				self:Printf(L["Skada is out of date. You can download the newest version from \124cffffbb00%s\124r"], self.website)
-			elseif version < ver then
+				self.versionChecked = true
+				return
+			elseif remote[i] < current[i] then
 				self:SendComm("WHISPER", sender, "VersionCheck", self.version)
+				return
 			end
-
-			self.versionChecked = true
 		end
 	end
 

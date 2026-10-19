@@ -15,11 +15,11 @@
 ## SavedVariablesPerCharacter: SkadaCharDB
 ## DefaultState: enabled
 ## Author: Kader B. (bkader) — fork by NeticSoul
-## Version: 1.8.88-netic.1+fixes.8
-## X-Date: 2026-10-19
+## Version: 1.8.88-netic.1+fixes.9
+## X-Date: 2026-10-20
 ## X-Credits: Zarnivoop, Funkeh, nebula169, bkader (upstream)
 ## X-Fork-Maintainer: NeticSoul
-## X-Website: https://github.com/neticsoul/Skada-WotLK-Netic
+## X-Website: https://github.com/Elijah-2517/Skada-3.3.5a/releases/latest
 ## X-Upstream: https://github.com/bkader/Skada-WoTLK
 ## X-Curse-Project-ID: 623633
 ## X-Category: Combat
