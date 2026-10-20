@@ -15,7 +15,7 @@
 ## SavedVariablesPerCharacter: SkadaCharDB
 ## DefaultState: enabled
 ## Author: Kader B. (bkader) — fork by NeticSoul
-## Version: 1.8.88-netic.1+fixes.9
+## Version: 1.8.88-netic.1+fixes.10
 ## X-Date: 2026-10-20
 ## X-Credits: Zarnivoop, Funkeh, nebula169, bkader (upstream)
 ## X-Fork-Maintainer: NeticSoul

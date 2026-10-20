@@ -6,7 +6,7 @@ from skada_regression import ADDON
 class PerformanceTests(unittest.TestCase):
     def setUp(self):
         self.lua=LuaRuntime(unpack_returned_tuples=True)
-        self.lua.execute("Skada={}; windows={}; selected_feed=nil; dataobj={}; Window={}; P={}; clock=10; time=function() return clock end")
+        self.lua.execute("Private={IsBossEncounterInProgress=function() return false end}; Skada={}; windows={}; selected_feed=nil; dataobj={}; Window={}; P={}; clock=10; time=function() return clock end")
         self.core=(ADDON/"Core/Core.lua").read_text(encoding="utf-8-sig")
 
     def load_display(self):

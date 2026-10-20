@@ -2580,10 +2580,8 @@ function Skada:PLAYER_REGEN_ENABLED()
 	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
 	if not self.current then return end
 
-	-- we make sure to end the segment only if:
-	-- 	1. the segment was previously stopped.
-	-- 	2. the player and the group aren't in combat
-	if self.current.stopped or (not InCombatLockdown() and not IsGroupInCombat()) then
+	-- Leaving combat after death must not split a pull still fought by the raid.
+	if not InCombatLockdown() and not IsGroupInCombat() and not Private.IsBossEncounterInProgress(self.current) then
 		self:Debug("\124cffffbb00EndSegment\124r: PLAYER_REGEN_ENABLED")
 		combat_end()
 	end
@@ -2899,7 +2897,7 @@ do
 
 	local function combat_tick()
 		Skada._time = time()
-		if Skada.current and not InCombatLockdown() and not IsGroupInCombat() and Skada.insType ~= "pvp" and Skada.insType ~= "arena" then
+		if Skada.current and not InCombatLockdown() and not IsGroupInCombat() and Skada.insType ~= "pvp" and Skada.insType ~= "arena" and not Private.IsBossEncounterInProgress(Skada.current) then
 			Skada:Debug("\124cffffbb00EndSegment\124r: Combat Tick")
 			combat_end()
 		end

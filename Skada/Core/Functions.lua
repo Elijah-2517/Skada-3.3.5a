@@ -1185,6 +1185,16 @@ do
 		return type(set.mobname) == "string" and type(info.name) == "string" and info.name ~= "" and find(strlower(set.mobname), strlower(info.name), 1, true) ~= nil
 	end
 
+	function Private.IsBossEncounterInProgress(set)
+		if not set or not set.gotboss or set.success or set.snapshotid then return false end
+		local dbm = _G.DBM
+		if not dbm or (dbm.IsEnabled and not dbm:IsEnabled()) or (dbm.Options and dbm.Options.Enabled == false) then return false end
+		for _, mod in ipairs(dbm.Mods or Skada.dummyTable) do
+			if mod.inCombat and mod.combatInfo and (not mod.Options or mod.Options.Enabled ~= false) and matches_dbm_encounter(set, mod) then return true end
+		end
+		return false
+	end
+
 	function Private.WaitsForBossmodVictory(set)
 		local dbm = _G.DBM
 		if not dbm or (dbm.IsEnabled and not dbm:IsEnabled()) or (dbm.Options and dbm.Options.Enabled == false) then return false end
