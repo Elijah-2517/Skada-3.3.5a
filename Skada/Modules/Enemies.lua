@@ -427,14 +427,15 @@ Skada:RegisterModule("Enemy Damage Taken", function(L, P, _, C)
 	end
 
 	local function spell_damage(t)
+		local creatureId = GetCreatureId(t.dstGUID)
 		if
 			t.srcName and t.dstName and
-			not ignored_creatures[GetCreatureId(t.dstGUID)] and
+			not ignored_creatures[creatureId] and
 			t.spellid and not ignored_spells[t.spellid] and
 			(not t.misstype or t.misstype == "ABSORB")
 		then
 			dmg.actorid = t.dstGUID
-			dmg.actorname = t.dstName
+			dmg.actorname = (creatureId == 39863 or creatureId == 40142) and L["Halion (boss only)"] or t.dstName
 			dmg.actorflags = t.dstFlags
 
 			dmg.spellid = t.spellstring

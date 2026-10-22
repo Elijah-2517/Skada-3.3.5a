@@ -641,6 +641,7 @@ L["Oozes"] = "Слизнюки" -- Professor Putricide
 L["Princes overkilling"] = "Принцы - избыточный урон" -- Blood Prince Council
 L["Adds"] = "Прислужники" -- Lady Deathwhisper
 L["Halion and Inferno"] = "Халион и элементали" -- Halion
+L["Halion (boss only)"] = "Халион (только босс)"
 L["Valkyrs overkilling"] = "Валькирии - избыточный урон" -- The Lich King
 -- Deaths Module --
 L["%s's deaths"] = "%s - Смерти"

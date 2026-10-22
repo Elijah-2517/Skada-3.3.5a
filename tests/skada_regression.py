@@ -785,6 +785,62 @@ class SkadaTests(unittest.TestCase):
         assert(Skada.current.actors['Important targets'].damaged==150)
         ''')
 
+    def load_halion_groups(self):
+        source=(ADDON/'Core/Tables.lua').read_text(encoding='utf-8-sig')
+        start=source.index('\tlocal grouped_units = {')
+        end=source.index('\n\t}',start)+len('\n\t}')
+        self.load_runtime(grouped_source=source[start:end])
+
+    def test_halion_only_row_combines_realms_and_keeps_inferno_group(self):
+        self.load_halion_groups()
+        self.check('''
+        Skada.phase=setmetatable({actors={}},{__index=Skada.setPrototype})
+        hit('39863-a','Halion',100,0,5)
+        hit('40142-a','Halion',40,0,7)
+        hit('40681-a','Living Inferno',30)
+        hit('40683-a','Living Ember',10)
+        for _,set in ipairs({Skada.current,Skada.total,Skada.phase}) do
+         local boss=set.actors['Halion (boss only)']
+         assert(boss and boss.enemy and boss.damaged==140 and boss.totaldamaged==152)
+         assert(set.actors['Halion and Inferno'].damaged==170)
+         assert(set.actors['Living Inferno'].damaged==30)
+         assert(set.actors['Living Ember'].damaged==10)
+         assert(set.edamaged==180 and set.damage==180)
+        end
+        ''')
+
+    def test_halion_boss_row_survives_same_named_player_and_is_clickable(self):
+        self.load_halion_groups()
+        self.check('''
+        setmetatable(Skada.enemyPrototype,{__index=Skada.actorPrototype})
+        Skada:GetActor(Skada.current,'Halion','player',false)
+        hit('39863-a','Halion',100,0,0,'Halion')
+        hit('40681-a','Living Inferno',30,0,0,'Halion')
+        local boss=Skada.current.actors['Halion (boss only)']
+        assert(boss and boss.enemy and boss.damaged==100)
+        assert(not Skada.current.actors.Halion.enemy and Skada.current.actors.Halion.damage==130)
+        assert(boss.damagedspells['123.4'].sources.Halion.amount==100)
+        local win={metadata={maxvalue=0},rows={}}
+        function win:actor(n,actor,enemy,name) self.rows[n]={id=name,label=name}; return self.rows[n] end
+        Skada.FormatNumber=function(_,n) return tostring(n) end
+        Skada.FormatPercent=function(_,n,total) return tostring(100*n/total) end
+        Skada.FormatValueCols=function(_,amount) return amount end
+        Skada.modules['Enemy Damage Taken']:Update(win,Skada.current)
+        local found=false
+        for _,row in ipairs(win.rows) do if row.id=='Halion (boss only)' then found=row.value==100 end end
+        assert(found)
+        ''')
+
+    def test_halion_normal_boss_row_has_no_heroic_combined_group(self):
+        self.load_halion_groups()
+        self.check('''
+        diff='25n'
+        hit('39863-a','Halion',100)
+        hit('40142-a','Halion',40)
+        assert(Skada.current.actors['Halion (boss only)'].damaged==140)
+        assert(not Skada.current.actors['Halion and Inferno'])
+        ''')
+
     def test_all_addon_sources_compile_as_lua51(self):
         compile_lua = self.lua.eval("function(s) local f,e=loadstring(s); return f~=nil,e end")
         for path in (ADDON / "Core").rglob("*.lua"):

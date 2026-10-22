@@ -709,6 +709,7 @@ L["Oozes"] = true
 L["Princes overkilling"] = true
 L["Adds"] = true
 L["Halion and Inferno"] = true
+L["Halion (boss only)"] = true
 L["Valkyrs overkilling"] = true
 -- Deaths Module --
 L["Deaths"] = _G.DEATHS

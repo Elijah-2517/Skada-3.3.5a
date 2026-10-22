@@ -903,6 +903,7 @@ do
 
 		-- Halion: Halion and Inferno
 		[39863] = L["Halion and Inferno"], -- Halion
+		[40142] = L["Halion and Inferno"], -- Halion (twilight realm)
 		[40681] = L["Halion and Inferno"], -- Living Inferno
 
 		-- Anub'arak: Adds
