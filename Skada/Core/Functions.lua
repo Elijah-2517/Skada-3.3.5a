@@ -2173,6 +2173,12 @@ do
 
 		local args = Handlers[event](ARGS, timestamp, event, ...)
 
+		-- Snake Trap units are excluded from every combat-log module.
+		local srcId = args.srcGUID and self.GetCreatureId(args.srcGUID)
+		if srcId == 19833 or srcId == 19921 then return end
+		local dstId = args.dstGUID and self.GetCreatureId(args.dstGUID)
+		if dstId == 19833 or dstId == 19921 then return end
+
 		if event == "SPELL_EXTRA_ATTACKS" then
 			create_extra_attack(args)
 			return -- queue for later!
