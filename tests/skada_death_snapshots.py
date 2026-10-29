@@ -155,6 +155,7 @@ class DeathSnapshotTests(unittest.TestCase):
         local new=Private.newTable
         local function create_set() return {time=0,actors={}} end
         local function ReloadUI() end
+        local callbacks={Fire=function() end}
         ''' + core[start:end] + '''
         die(1)
         table.insert(Skada.sets,{starttime=10,endtime=200,time=190,damage=300,

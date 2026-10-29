@@ -181,6 +181,14 @@ do
 	end
 end
 
+function Skada:EnsureTotalSet()
+	if not self.total then
+		self.total = self.sets[0] or create_set(L["Total"])
+		self.sets[0] = self.total
+	end
+	return self.total
+end
+
 -- prepares the given set name.
 local function check_set_name(set)
 	local setname = set.mobname or L["Unknown"]
@@ -1634,6 +1642,7 @@ local function generate_total()
 		end
 	end
 
+	callbacks:Fire("Skada_TotalRebuilt")
 	ReloadUI()
 end
 
@@ -2068,6 +2077,7 @@ function Skada:Reset(force)
 	end
 
 	self.last = nil
+	self.sets.consumables = nil
 
 	clean_sets(true)
 

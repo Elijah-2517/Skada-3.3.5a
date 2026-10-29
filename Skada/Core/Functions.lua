@@ -1376,7 +1376,7 @@ do
 			actor.__new = true
 
 			-- grab info from current segment to prevent re-processing.
-			local curr_actor = set ~= self.current and self.current.actors and self.current.actors[actorname]
+			local curr_actor = set ~= self.current and self.current and self.current.actors and self.current.actors[actorname]
 			if curr_actor then
 				actor.id = curr_actor.id or actorid
 				actor.class = curr_actor.class
@@ -2241,6 +2241,8 @@ do
 		if args.extrastring then
 			callbacks:Fire("Skada_SpellString", args, args.extraspellid, args.extrastring)
 		end
+
+		if event == "SPELL_CAST_SUCCESS" or event == "SPELL_AURA_APPLIED" or event == "SPELL_AURA_REFRESH" then callbacks:Fire("Skada_ConsumableEvent", args) end
 
 		-- check first hit!
 		if self.profile.firsthit and not self.firsthit and TRIGGER_EVENTS[args.event] then

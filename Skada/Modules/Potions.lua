@@ -24,66 +24,148 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 		end
 	end
 
-	local function log_potion(set, actorname, actorid, actorflags, potionid)
-		local actor = Skada:GetActor(set, actorname, actorid, actorflags)
-		if not actor then return end
+	local long_ids = {
+		[53758]="46379", [53755]="46376", [54212]="46378", [53760]="46377",
+		[53746]="40068", [53748]="40073", [53749]="40076", [53747]="40072", [33721]="40070",
+		[53751]="40078", [53752]="40079", [53763]="40097", [53764]="40109",
+		[28497]="39666", [60340]="44325", [60341]="44327", [60343]="44328",
+		[60344]="44329", [60345]="44330", [60346]="44331", [60347]="44332",
+	}
 
-		-- record potion usage for actor and set
-		actor.potion = (actor.potion or 0) + 1
-		set.potion = (set.potion or 0) + 1
+	local food_ids = { [57356]=true, [57358]=true, [57360]=true, [57367]=true, [57365]=true, [57371]=true, [57399]=true, [57329]=true, [57332]=true, [57327]=true, [57325]=true, [57334]=true }
 
-		-- saving this to total set may become a memory hog deluxe.
-		if set == Skada.total and not P.totalidc then return end
-
-		actor.potionspells = actor.potionspells or {}
-		actor.potionspells[potionid] = (actor.potionspells[potionid] or 0) + 1
+	local function state()
+		Skada.sets.consumables = Skada.sets.consumables or {pending={}, known={}, ledger={actors={}, consumableledger=true}}
+		return Skada.sets.consumables
 	end
 
-	local function potion_used(t)
-		if t.__temp or (t.spellid and potion_ids[t.spellid]) then
-			Skada:DispatchSets(log_potion, t.srcName, t.srcGUID, t.srcFlags, potion_ids[t.spellid])
+	local function log_potion(set, name, id, flags, item, count, inferred)
+		local actor
+		if set.consumableledger then
+			actor = set.actors[name] or {id=id,flag=flags}
+			set.actors[name] = actor
+		else actor = Skada:GetActor(set, name, id, flags) end
+		if not actor then return end
+		count = count or 1
+		actor.potion = (actor.potion or 0) + count
+		set.potion = (set.potion or 0) + count
+		actor.potionspells = actor.potionspells or {}
+		actor.potionspells[item] = (actor.potionspells[item] or 0) + count
+		if inferred then
+			actor.potioninferred = actor.potioninferred or {}
+			actor.potioninferred[item] = true
 		end
 	end
 
-	do
-		local tconcat = table.concat
-		local UnitClass = UnitClass
+	local function log_current(set, ...)
+		if set ~= Skada.total and not set.stopped then log_potion(set, ...) end
+	end
 
-		-- listens to combat start
-		function mode:UnitBuff(_, args)
-			if args.owner or not args.auras then return end
+	local function record(name, id, flags, item, long, inferred)
+		if not Skada.sets then return end
+		local data = state()
+		local total = Skada:EnsureTotalSet()
+		-- Keep a complete total, including consumables used outside saved fights.
+		if not data.initialized then
+			for actorname, actor in pairs(total.actors) do
+				local classified = 0
+				for potion, count in pairs(actor.potionspells or {}) do
+					classified = classified + count
+					log_potion(data.ledger, actorname, actor.id, actor.flag, potion, count)
+				end
+				if (actor.potion or 0) > classified then log_potion(data.ledger,actorname,actor.id,actor.flag,"s0",actor.potion-classified) end
+			end
+			data.initialized = true
+		end
+		log_potion(total, name, id, flags, item, 1, inferred)
+		log_potion(data.ledger, name, id, flags, item, 1, inferred)
+		if not long then
+			if Skada.inCombat and Skada.current then
+				Skada:DispatchSets(log_current, name, id, flags, item)
+			else
+				local key = id .. ":" .. item
+				local entry = data.pending[key]
+				if entry then entry.count = entry.count + 1
+				else data.pending[key] = {name=name,id=id,flags=flags,item=item,count=1} end
+			end
+		end
+		Skada.changed = true
+	end
 
-			local potions = nil
-			for _, aura in pairs(args.auras) do
-				if potion_ids[aura.id] then
-					local t = new()
-					t.srcGUID = args.dstGUID
-					t.srcName = args.dstName
-					t.srcFlags = args.dstFlags
-					t.spellid = aura.id
-					t.__temp = true
-					potion_used(t)
-					t = del(t)
+	function mode:CombatEvent(_, t)
+		if food_ids[t.spellid] and t.event == "SPELL_AURA_APPLIED" then
+			if t:DestInGroup(true) then
+				local data = state()
+				data.last = data.last or {}
+				local key = t.dstGUID .. ":food:" .. t.spellid
+				if t.timestamp and data.last[key] == t.timestamp then return end
+				data.last[key] = t.timestamp
+				record(t.dstName,t.dstGUID,t.dstFlags,"s"..t.spellid,true)
+			end
+			return
+		end
+		if t.event ~= "SPELL_CAST_SUCCESS" or not t:SourceInGroup(true) then return end
+		local item = potion_ids[t.spellid] or long_ids[t.spellid]
+		if not item then return end
+		local data = state()
+		-- A duplicate delivery of the same cast must not add another use.
+		local key = t.srcGUID .. ":" .. t.spellid
+		data.last = data.last or {}
+		if t.timestamp and data.last[key] == t.timestamp then return end
+		data.last[key] = t.timestamp
+		if long_ids[t.spellid] then data.known[key] = true end
+		record(t.srcName, t.srcGUID, t.srcFlags, item, long_ids[t.spellid])
+	end
 
-					potions = potions or new()
-					potions[#potions + 1] = format(potionStr, aura.icon)
+	function mode:CombatEnter()
+		local data = state()
+		for _, entry in pairs(data.pending) do
+			Skada:DispatchSets(log_current, entry.name, entry.id, entry.flags, entry.item, entry.count)
+		end
+		if P.prepotion then
+			clear(prepotion)
+			for _,entry in pairs(data.pending) do
+				local name = GetItemInfo(entry.item) or entry.item
+				prepotion[#prepotion+1] = format("%s: %s x%d",entry.name,name,entry.count)
+			end
+		end
+		wipe(data.pending)
+		-- One scan per pull, including auras whose caster is unavailable.
+		for unit in Skada.UnitIterator(true) do
+			local id = UnitGUID(unit)
+			local name = Private.UnitFullname and Private.UnitFullname(unit) or UnitName(unit)
+			for i=1,40 do
+				local aura, _, _, _, _, _, _, _, _, _, spell = UnitBuff(unit,i)
+				if not aura then break end
+				local item = long_ids[spell]
+				local key = id and (id .. ":" .. spell)
+				if item and key and not data.known[key] then
+					data.known[key] = true
+					record(name,id,Private.DEFAULT_FLAGS,item,true,true)
 				end
 			end
-
-			if not potions then return end
-
-			local _, class = UnitClass(args.unit)
-			prepotion[#prepotion + 1] = format(prepotionStr, classcolors.str(class), args.dstName, tconcat(potions, " "))
-			potions = del(potions)
 		end
+	end
 
-		-- listens to combat end
-		function mode:CombatLeave()
-			if prepotion then
-				if P.prepotion and next(prepotion) ~= nil then
-					Skada:Printf(L["pre-potion: %s"], tconcat(prepotion, ", "))
-				end
-				clear(prepotion)
+	function mode:CombatLeave()
+		if P.prepotion and #prepotion > 0 then Skada:Printf(L["pre-potion: %s"],table.concat(prepotion,", ")) end
+		clear(prepotion)
+	end
+
+	function mode:DataReset()
+		Skada.sets.consumables = nil
+		clear(prepotion)
+	end
+
+	function mode:RestoreTotal()
+		local data = Skada.sets.consumables
+		if not data or not data.initialized then return end
+		local total = Skada.total
+		total.potion = nil
+		for _,actor in pairs(total.actors) do actor.potion=nil; actor.potionspells=nil; actor.potioninferred=nil end
+		for name,actor in pairs(data.ledger.actors) do
+			for item,count in pairs(actor.potionspells or {}) do
+				log_potion(total,name,actor.id,actor.flag,item,count,actor.potioninferred and actor.potioninferred[item])
 			end
 		end
 	end
@@ -146,7 +228,17 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 
 		local nr = 0
 		for potionid, count in pairs(potions) do
-			local potionname, potionlink, _, _, _, _, _, _, _, potionicon = GetItemInfo(potionid)
+			local potionname, potionlink, potionicon
+			if strsub(potionid,1,1) == "s" then
+				local id = tonumber(strsub(potionid,2))
+				local rank
+				potionname, rank, potionicon = GetSpellInfo(id)
+				potionlink = GetSpellLink(id)
+				if id == 0 then potionname=L["Unknown"] end
+			else
+				local a,b,c,d,e,f,g
+				potionname, potionlink, a,b,c,d,e,f,g,potionicon = GetItemInfo(potionid)
+			end
 			if not potionname then
 				request_potion(potionid)
 			end
@@ -157,7 +249,7 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 
 				d.id = potionid
 				d.hyperlink = potionlink
-				d.label = potionname
+				d.label = potionname .. ((actor.potioninferred and actor.potioninferred[potionid]) and (" (" .. L["Detected on player"] .. ")") or "")
 				d.icon = potionicon
 
 				d.value = count
@@ -212,27 +304,25 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 		-- no total click.
 		mode_spell.nototal = true
 
-		Skada:RegisterForCL(potion_used, {src_is_interesting_nopets = true}, "SPELL_CAST_SUCCESS")
+		Skada.RegisterCallback(self, "Skada_ConsumableEvent", "CombatEvent")
+		Skada.RegisterCallback(self, "Skada_DataReset", "DataReset")
+		Skada.RegisterCallback(self, "Skada_TotalRebuilt", "RestoreTotal")
+		Skada.RegisterMessage(self, "COMBAT_PLAYER_ENTER", "CombatEnter")
+		Skada.RegisterMessage(self, "COMBAT_PLAYER_LEAVE", "CombatLeave")
 		Skada.RegisterCallback(self, "Skada_ApplySettings", "ApplySettings")
 		Skada:AddMode(self)
 	end
 
 	function mode:OnDisable()
 		Skada.UnregisterAllCallbacks(self)
+		Skada.UnregisterAllMessages(self)
 		Skada:RemoveMode(self)
 	end
 
-	function mode:ApplySettings()
-		if P.prepotion then
-			Skada.RegisterCallback(self, "Skada_UnitBuffs", "UnitBuff")
-			Skada.RegisterMessage(self, "COMBAT_PLAYER_LEAVE", "CombatLeave")
-		else
-			Skada.UnregisterCallback(self, "Skada_UnitBuffs")
-			Skada.UnregisterAllMessages(self)
-		end
-	end
+	function mode:ApplySettings() end
 
 	function mode:OnInitialize()
+		potion_ids[28714] = "22788" -- Flame Cap
 		-- list of potion: [spellid] = potionid (string)
 
 		--[[ level NaN ]]--
