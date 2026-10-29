@@ -886,3 +886,8 @@ L["Valithria Dreamwalker"] = true
 L["Yogg-Saron"] = true
 
 L["%s - Death snapshot (%s)"] = true
+L["Death snapshots"] = true
+L["opt_deathsnapshot_desc"] = "Saves a separate segment with the statistics at the moment you die in combat."
+L["Delete all death snapshots"] = true
+L["opt_deletesnapshots_desc"] = "Removes every saved death snapshot. Regular segments and the total are not affected."
+L["Are you sure you want to delete all death snapshots?"] = true

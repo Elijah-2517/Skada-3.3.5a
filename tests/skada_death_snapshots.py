@@ -166,6 +166,21 @@ class DeathSnapshotTests(unittest.TestCase):
         assert(#Skada.sets==2 and Skada.sets[1].snapshotid)
         ''')
 
+    def test_delete_all_snapshots_keeps_regular_segments_and_total(self):
+        core = (ADDON / "Core/Core.lua").read_text(encoding="utf-8-sig")
+        start = core.index("function Skada:DeleteDeathSnapshots()")
+        end = core.index("\nend", start) + 4
+        self.lua.execute('''
+        local removed = {}
+        Skada.sets = {{snapshotid="a"}, {name="boss"}, {snapshotid="b"}, {name="trash"}}
+        Skada.total = {damage=5}
+        function Skada:DeleteSet(set, i) table.remove(self.sets, i); removed[#removed+1] = set.snapshotid end
+        ''' + core[start:end] + '''
+        Skada:DeleteDeathSnapshots()
+        assert(#Skada.sets == 2 and Skada.sets[1].name == "boss" and Skada.sets[2].name == "trash")
+        assert(#removed == 2 and Skada.total.damage == 5)
+        ''')
+
     def test_snapshot_does_not_reset_live_mode_or_total_and_selection_is_unique(self):
         self.check('''
         Skada.modes_set=true

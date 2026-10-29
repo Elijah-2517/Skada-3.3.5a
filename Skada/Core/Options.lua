@@ -115,6 +115,7 @@ Skada.defaults = {
 		setformat = 3,
 		setslimit = 15,
 		setstokeep = 15,
+		deathsnapshot = true,
 		smartwait = 3,
 		timemesure = 2,
 		tooltiprows = 3,
@@ -447,6 +448,20 @@ options.args.generaloptions = {
 					name = L["Autostop"],
 					desc = L["opt_autostop_desc"],
 					order = 150
+				},
+				deathsnapshot = {
+					type = "toggle",
+					name = L["Death snapshots"],
+					desc = L["opt_deathsnapshot_desc"],
+					order = 155
+				},
+				deletesnapshots = {
+					type = "execute",
+					name = L["Delete all death snapshots"],
+					desc = L["opt_deletesnapshots_desc"],
+					confirm = function() return L["Are you sure you want to delete all death snapshots?"] end,
+					func = function() Skada:DeleteDeathSnapshots() end,
+					order = 156
 				},
 				tentativecombatstart = {
 					type = "toggle",

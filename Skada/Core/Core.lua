@@ -2628,6 +2628,17 @@ function Skada:NewPhase()
 	self:Printf(L["\124cffffbb00%s\124r - \124cff00ff00Phase %s\124r started."], set.mobname or L["Unknown"], set.phase)
 end
 
+-- removes every death snapshot; regular segments and the total are untouched.
+function Skada:DeleteDeathSnapshots()
+	local sets = self.sets
+	for i = #sets, 1, -1 do
+		local set = sets[i]
+		if set and set.snapshotid then
+			self:DeleteSet(set, i)
+		end
+	end
+end
+
 function Skada:SaveDeathSnapshot()
 	if not self.inCombat or not self.current or self.current.stopped then return end
 	local snapshot = {}
@@ -3262,7 +3273,7 @@ do
 
 		check_boss_fight(self.current, t, src_is_interesting, dst_is_interesting)
 
-		if self.inCombat and t.event == "UNIT_DIED" and t.dstGUID == self.userGUID and not death_snapshot_taken and not UnitIsFeignDeath("player") then
+		if self.inCombat and P.deathsnapshot ~= false and t.event == "UNIT_DIED" and t.dstGUID == self.userGUID and not death_snapshot_taken and not UnitIsFeignDeath("player") then
 			death_snapshot_taken = true
 			self:SaveDeathSnapshot()
 		end

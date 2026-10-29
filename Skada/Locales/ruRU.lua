@@ -802,3 +802,8 @@ L["Valithria Dreamwalker"] = "Валитрия Сноходица"
 L["Yogg-Saron"] = "Йогг-Сарон"
 
 L["%s - Death snapshot (%s)"] = "%s - На момент моей смерти (%s)"
+L["Death snapshots"] = "Снимки смерти"
+L["opt_deathsnapshot_desc"] = "Сохраняет отдельный сегмент со статистикой на момент вашей смерти в бою."
+L["Delete all death snapshots"] = "Удалить все снимки смерти"
+L["opt_deletesnapshots_desc"] = "Удаляет все сохранённые снимки смерти. Обычные сегменты и «Всего» не затрагиваются."
+L["Are you sure you want to delete all death snapshots?"] = "Удалить все снимки смерти?"
