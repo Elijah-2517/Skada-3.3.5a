@@ -68,6 +68,8 @@ Skada:RegisterModule("Damage", function(L, P)
 			return amount, t.absorbed or 0
 		elseif id == 37695 or id == 37799 or id == 37698 then -- Lich King: Drudge Ghoul, Vile Spirit and Shambling Horror.
 			return amount, t.absorbed or 0
+		elseif id == 36980 or id == 38369 then -- Sindragosa: Ice Tomb; Blood Prince Council: Dark Nucleus.
+			return amount, t.absorbed or 0
 		elseif princes[id] then
 			local uid = not active_prince and Skada.GetUnitIdFromGUID(t.dstGUID)
 			if (active_prince and active_prince ~= id) or (not active_prince and uid and UnitHealthMax(uid) == 1) then

@@ -727,6 +727,17 @@ class SkadaTests(unittest.TestCase):
                         assert(Skada.current:GetDamage(nil,true)==expected+10) -- another same-name NPC
                         ''')
 
+    def test_ice_tombs_and_dark_nucleus_are_damage_but_not_useful(self):
+        self.check('''
+        hit('36980-a','Ice Tomb',50,0,4,'A')
+        hit('38369-a','Dark Nucleus',20,0,2,'A')
+        hit('36853-a','Sindragosa',100,0,0,'A')
+        local set=Skada.current
+        assert(set.damage==170)
+        assert(set:GetDamage(nil,true)==100)
+        assert(set.actors.A:GetDamage(true)==100)
+        ''')
+
     def test_useful_rows_and_actual_tooltip_hide_excluded_targets_and_spells(self):
         self.check('''
         hit('37695-a','Ghoul',40,0,0,'Player',777)
