@@ -66,7 +66,7 @@ Skada:RegisterModule("Damage", function(L, P)
 		local id = GetCreatureId(t.dstGUID)
 		if id == 36897 or id == 36899 then -- Rotface: oozes are merged, not killed.
 			return amount, t.absorbed or 0
-		elseif id == 37695 or id == 37799 then -- Lich King: Drudge Ghoul and Vile Spirit.
+		elseif id == 37695 or id == 37799 or id == 37698 then -- Lich King: Drudge Ghoul, Vile Spirit and Shambling Horror.
 			return amount, t.absorbed or 0
 		elseif princes[id] then
 			local uid = not active_prince and Skada.GetUnitIdFromGUID(t.dstGUID)

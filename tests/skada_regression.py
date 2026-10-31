@@ -707,6 +707,7 @@ class SkadaTests(unittest.TestCase):
                         Skada.phase=setmetatable({actors={}},{__index=Skada.setPrototype})
                         hit('37695-a','Drudge Ghoul',40,5,10,'A')
                         hit('37799-a','Excluded spirit',30,3,11,'B')
+                        hit('37698-a','Shambling Horror',25,0,0,'B')
                         hit('39190-a','Useful spirit',30,0,5,'A')
                         hit('36701-a','Raging Spirit',20,0,0,'B')
                         hit('36597-a','Lich King',100,0,0,'A')
@@ -715,8 +716,8 @@ class SkadaTests(unittest.TestCase):
                         local heroic=diff=='10h' or diff=='25h'
                         local expected=(heroic and 210 or 230)+(P.absdamage and 5 or 0)
                         for _,set in ipairs({Skada.current,Skada.total,Skada.phase}) do
-                         assert(set.damage==300 and set.overkill==8)
-                         assert(set:GetDamage()==(P.absdamage and 326 or 300))
+                         assert(set.damage==325 and set.overkill==8)
+                         assert(set:GetDamage()==(P.absdamage and 351 or 325))
                          assert(set:GetDamage(nil,true)==expected)
                          assert(set.actors.A:GetDamage(true)==140+(P.absdamage and 5 or 0))
                          assert(set.actors.B:GetDamage(true)==(heroic and 70 or 90))
@@ -780,6 +781,7 @@ class SkadaTests(unittest.TestCase):
         assert(grouped_units[39190] and grouped_units[36701])
         assert(not grouped_units[37695] and not grouped_units[37799])
         hit('37695-a','Ghoul',40); hit('37799-a','Excluded spirit',30)
+        hit('37698-a','Shambling Horror',25)
         hit('39190-a','Useful spirit',30); hit('36701-a','Raging Spirit',20)
         hit('36597-a','Lich King',100)
         assert(Skada.current.actors['Important targets'].damaged==150)
