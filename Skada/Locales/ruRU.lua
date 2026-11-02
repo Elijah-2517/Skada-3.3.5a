@@ -700,6 +700,8 @@ L["pre-potion: %s"] = "пре-поты: %s"
 L["Prints pre-potion after the end of the combat."] = "После окончания боя отображает в чате использовавших зелья заранее."
 -- healthstone --
 L["Healthstones"] = "Камень здоровья"
+L["Power Buffs"] = "Усиления"
+L["%s's power buffs"] = "Усиления %s"
 -- resurrect module lines --
 L["Resurrects"] = "Воскрешения"
 -- nickname module lines --

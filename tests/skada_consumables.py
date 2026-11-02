@@ -274,6 +274,55 @@ class SunderTests(unittest.TestCase):
         ''')
 
 
+class PowerBuffTests(unittest.TestCase):
+    def setUp(self):
+        self.lua = LuaRuntime(unpack_returned_tuples=True)
+        self.lua.execute(SETUP)
+        self.lua.globals().PB_SRC = (ADDON / "Modules/PowerBuffs.lua").read_text(encoding="utf-8-sig")
+        self.lua.execute('''
+        mode = load_module("Power Buffs", PB_SRC)
+        mode:OnEnable()
+        Skada.current = {actors = {}}
+        Skada.total = {actors = {}}
+        applied = CL[1].fn
+        function buff(event, spell, dst, ts)
+          applied(ev{event=event, spellid=spell, dstName=dst, dstGUID="g"..dst, dstFlags=1, timestamp=ts})
+        end
+        function pb(set, name) local a = set.actors[name]; return a and a.powerbuff or 0 end
+        ''')
+
+    def check(self, code):
+        self.lua.execute(code)
+
+    def test_each_power_buff_counts_for_the_receiver_in_current_and_total(self):
+        self.check('''
+        buff("SPELL_AURA_APPLIED", 10060, "Mage", 1)    -- Power Infusion
+        buff("SPELL_AURA_APPLIED", 57933, "Mage", 2)    -- Tricks of the Trade
+        buff("SPELL_AURA_APPLIED", 49016, "Rogue", 3)   -- Hysteria
+        buff("SPELL_AURA_APPLIED", 23060, "Rogue", 4)   -- Battle Squawk
+        buff("SPELL_AURA_REFRESH", 23060, "Rogue", 9)   -- another squawk
+        assert(pb(Skada.current, "Mage") == 2 and pb(Skada.total, "Mage") == 2)
+        assert(pb(Skada.current, "Rogue") == 3)
+        local s = Skada.current.actors.Rogue.powerbuffspells
+        assert(s[49016] == 1 and s[23060] == 2)
+        ''')
+
+    def test_duplicates_and_other_buffs_are_ignored(self):
+        self.check('''
+        buff("SPELL_AURA_APPLIED", 10060, "Mage", 5); buff("SPELL_AURA_APPLIED", 10060, "Mage", 5)
+        buff("SPELL_AURA_APPLIED", 48470, "Mage", 6)    -- Gift of the Wild
+        buff("SPELL_AURA_APPLIED", 57934, "Mage", 7)    -- Tricks redirect on the rogue, not the buff
+        assert(pb(Skada.current, "Mage") == 1)
+        ''')
+
+    def test_buffs_up_at_the_pull_are_counted_once(self):
+        self.check('''
+        ROSTER = {"Hunter"}; BUFFS = {Hunter = {57933, 48470}}
+        mode:CombatEnter()
+        assert(pb(Skada.current, "Hunter") == 1 and pb(Skada.total, "Hunter") == 1)
+        ''')
+
+
 class DefaultsTests(unittest.TestCase):
     def test_lighter_defaults(self):
         import re

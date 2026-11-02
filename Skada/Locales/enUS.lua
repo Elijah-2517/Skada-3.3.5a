@@ -772,6 +772,8 @@ L["pre-potion: %s"] = true
 L["Prints pre-potion after the end of the combat."] = true
 -- healthstone --
 L["Healthstones"] = true
+L["Power Buffs"] = true
+L["%s's power buffs"] = true
 -- resurrect module lines --
 L["Resurrects"] = true
 -- nickname module lines --
