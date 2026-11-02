@@ -32,10 +32,40 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 		[60344]="44329", [60345]="44330", [60346]="44331", [60347]="44332",
 	}
 
+	-- Food is not tracked; the ids only remove entries recorded by earlier builds.
 	local food_ids = { [57356]=true, [57358]=true, [57360]=true, [57367]=true, [57365]=true, [57371]=true, [57399]=true, [57329]=true, [57332]=true, [57327]=true, [57325]=true, [57334]=true }
 
+	local function strip_food(set)
+		if not set or not set.actors then return end
+		for _, actor in pairs(set.actors) do
+			local spells = actor.potionspells
+			if spells then
+				for spellid in pairs(food_ids) do
+					local count = spells["s" .. spellid]
+					if count then
+						spells["s" .. spellid] = nil
+						actor.potion = (actor.potion or 0) - count
+						set.potion = set.potion and (set.potion - count)
+					end
+				end
+			end
+		end
+	end
+
+	local function purge_food()
+		local data = Skada.sets and Skada.sets.consumables
+		if not data or data.nofood then return end
+		strip_food(data.ledger)
+		strip_food(Skada.total)
+		data.nofood = true
+	end
+
 	local function state()
-		Skada.sets.consumables = Skada.sets.consumables or {pending={}, known={}, ledger={actors={}, consumableledger=true}}
+		if Skada.sets.consumables then
+			purge_food()
+		else
+			Skada.sets.consumables = {pending={}, known={}, ledger={actors={}, consumableledger=true}, nofood=true}
+		end
 		return Skada.sets.consumables
 	end
 
@@ -93,17 +123,6 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 	end
 
 	function mode:CombatEvent(_, t)
-		if food_ids[t.spellid] and t.event == "SPELL_AURA_APPLIED" then
-			if t:DestInGroup(true) then
-				local data = state()
-				data.last = data.last or {}
-				local key = t.dstGUID .. ":food:" .. t.spellid
-				if t.timestamp and data.last[key] == t.timestamp then return end
-				data.last[key] = t.timestamp
-				record(t.dstName,t.dstGUID,t.dstFlags,"s"..t.spellid,true)
-			end
-			return
-		end
 		if t.event ~= "SPELL_CAST_SUCCESS" or not t:SourceInGroup(true) then return end
 		local item = potion_ids[t.spellid] or long_ids[t.spellid]
 		if not item then return end
@@ -158,6 +177,7 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 	end
 
 	function mode:RestoreTotal()
+		purge_food()
 		local data = Skada.sets.consumables
 		if not data or not data.initialized then return end
 		local total = Skada.total
@@ -259,6 +279,7 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 	end
 
 	function mode:Update(win, set)
+		purge_food()
 		win.title = win.class and format("%s (%s)", L["Potions"], L[win.class]) or L["Potions"]
 
 		local total = set and set:GetTotal(win.class, nil, "potion")

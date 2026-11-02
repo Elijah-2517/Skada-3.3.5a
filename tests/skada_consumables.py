@@ -140,12 +140,28 @@ class ConsumablesTests(unittest.TestCase):
         assert(cur("War") == 0)
         ''')
 
-    def test_food_counts_once_per_applied_event(self):
+    def test_food_is_not_counted(self):
         self.check('''
-        local function food(ts) mode:CombatEvent(nil, ev{event="SPELL_AURA_APPLIED", spellid=57356,
-          dstName="War", dstGUID="gWar", dstFlags=1, timestamp=ts}) end
-        food(5); food(5)
-        assert(total("War") == 1)
+        start_combat()
+        mode:CombatEvent(nil, ev{event="SPELL_AURA_APPLIED", spellid=57356,
+          dstName="War", dstGUID="gWar", dstFlags=1, timestamp=5})
+        assert((Skada.total == nil or total("War") == 0) and cur("War") == 0)
+        ''')
+
+    def test_food_from_older_builds_is_removed_from_total_and_ledger(self):
+        self.check('''
+        Skada.total = {actors = {War = {potion = 3, potionspells = {s57356 = 1, ["40093"] = 2}}}, potion = 3}
+        Skada.sets[0] = Skada.total
+        Skada.sets.consumables = {pending = {}, known = {}, initialized = true,
+          ledger = {consumableledger = true, potion = 3, actors = {War = {potion = 3, potionspells = {s57356 = 1, ["40093"] = 2}}}}}
+        cast("War", 53762, 1)
+        local a = Skada.total.actors.War
+        assert(a.potion == 3 and a.potionspells.s57356 == nil and a.potionspells["40093"] == 3)
+        assert(Skada.total.potion == 3)
+        local l = Skada.sets.consumables.ledger.actors.War
+        assert(l.potion == 3 and l.potionspells.s57356 == nil)
+        mode:RestoreTotal()
+        assert(Skada.total.actors.War.potion == 3)
         ''')
 
     def test_preexisting_flask_is_inferred_once(self):
