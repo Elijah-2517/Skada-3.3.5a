@@ -301,8 +301,7 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 
 		mode_cols = self.metadata.columns
 
-		-- no total click.
-		mode_spell.nototal = true
+		-- Total keeps the per-consumable breakdown, so it can be opened there too.
 
 		Skada.RegisterCallback(self, "Skada_ConsumableEvent", "CombatEvent")
 		Skada.RegisterCallback(self, "Skada_DataReset", "DataReset")

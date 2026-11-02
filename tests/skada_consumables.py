@@ -157,6 +157,15 @@ class ConsumablesTests(unittest.TestCase):
         assert(cur("p1") == 0)
         ''')
 
+    def test_total_segment_allows_opening_a_players_consumables(self):
+        self.check('''
+        mode:OnEnable()
+        assert(mode.metadata.click1 and not mode.metadata.click1.nototal)
+        cast("War", 53762, 1); cast("War", 53908, 2)
+        local spells = Skada.total.actors.War.potionspells
+        assert(spells["40093"] == 1 and spells["40211"] == 1)
+        ''')
+
     def test_reset_clears_and_restore_total_rebuilds_without_duplicates(self):
         self.check('''
         cast("War", 53762, 1); cast("War", 53758, 2)
