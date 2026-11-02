@@ -16,7 +16,7 @@ GetSpellLink = function(i) return "link" .. i end
 GameTooltip = {SetHyperlink = noop, Hide = noop}
 UnitGUID = function(u) return u end
 UnitName = function(u) return u end
-UnitBuff = function(unit, i) local b = (BUFFS or {})[unit]; local s = b and b[i]; if s then return "aura", nil, nil, nil, nil, nil, nil, nil, nil, nil, s end end
+UnitBuff = function(unit, i) local b = (BUFFS or {})[unit]; local s = b and b[i]; if s then return "aura", nil, nil, nil, nil, nil, nil, "caster", nil, nil, s end end
 timers = {}
 L = setmetatable({}, {__index = function(_, k) return k end})
 Skada = {
@@ -285,8 +285,9 @@ class PowerBuffTests(unittest.TestCase):
         Skada.current = {actors = {}}
         Skada.total = {actors = {}}
         applied = CL[1].fn
-        function buff(event, spell, dst, ts)
-          applied(ev{event=event, spellid=spell, dstName=dst, dstGUID="g"..dst, dstFlags=1, timestamp=ts})
+        function buff(event, spell, dst, ts, src)
+          applied(ev{event=event, spellid=spell, dstName=dst, dstGUID="g"..dst, dstFlags=1, timestamp=ts,
+            srcName=src or "Giver"})
         end
         function pb(set, name) local a = set.actors[name]; return a and a.powerbuff or 0 end
         ''')
@@ -315,11 +316,22 @@ class PowerBuffTests(unittest.TestCase):
         assert(pb(Skada.current, "Mage") == 1)
         ''')
 
+    def test_sources_are_recorded_per_buff(self):
+        self.check('''
+        buff("SPELL_AURA_APPLIED", 57933, "Mage", 1, "Rogue1")
+        buff("SPELL_AURA_APPLIED", 57933, "Mage", 2, "Rogue2")
+        buff("SPELL_AURA_APPLIED", 57933, "Mage", 3, "Rogue1")
+        buff("SPELL_AURA_APPLIED", 10060, "Mage", 4, "Priest")
+        local src = Skada.total.actors.Mage.powerbuffsources
+        assert(src[57933].Rogue1 == 2 and src[57933].Rogue2 == 1 and src[10060].Priest == 1)
+        ''')
+
     def test_buffs_up_at_the_pull_are_counted_once(self):
         self.check('''
         ROSTER = {"Hunter"}; BUFFS = {Hunter = {57933, 48470}}
         mode:CombatEnter()
         assert(pb(Skada.current, "Hunter") == 1 and pb(Skada.total, "Hunter") == 1)
+        assert(Skada.current.actors.Hunter.powerbuffsources[57933].caster == 1)
         ''')
 
 

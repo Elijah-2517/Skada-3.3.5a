@@ -3,6 +3,7 @@ local Private = Skada.Private
 Skada:RegisterModule("Power Buffs", function(L)
 	local mode = Skada:NewModule("Power Buffs")
 	local mode_spell = mode:NewModule("Spell List")
+	local mode_source = mode_spell:NewModule("Source List")
 
 	local pairs, format, uformat = pairs, string.format, Private.uformat
 	local GetSpellInfo, UnitGUID, UnitName, UnitBuff = GetSpellInfo, UnitGUID, UnitName, UnitBuff
@@ -29,7 +30,7 @@ Skada:RegisterModule("Power Buffs", function(L)
 		end
 	end
 
-	local function log_buff(set, actorname, actorid, actorflags, spellid)
+	local function log_buff(set, actorname, actorid, actorflags, spellid, srcname)
 		local actor = Skada:GetActor(set, actorname, actorid, actorflags)
 		if not actor then return end
 
@@ -37,6 +38,15 @@ Skada:RegisterModule("Power Buffs", function(L)
 		set.powerbuff = (set.powerbuff or 0) + 1
 		actor.powerbuffspells = actor.powerbuffspells or {}
 		actor.powerbuffspells[spellid] = (actor.powerbuffspells[spellid] or 0) + 1
+
+		srcname = srcname or L["Unknown"]
+		actor.powerbuffsources = actor.powerbuffsources or {}
+		local sources = actor.powerbuffsources[spellid]
+		if not sources then
+			sources = {}
+			actor.powerbuffsources[spellid] = sources
+		end
+		sources[srcname] = (sources[srcname] or 0) + 1
 	end
 
 	local function buff_applied(t)
@@ -46,7 +56,7 @@ Skada:RegisterModule("Power Buffs", function(L)
 		if t.timestamp and last[key] == t.timestamp then return end
 		last[key] = t.timestamp
 
-		Skada:DispatchSets(log_buff, t.dstName, t.dstGUID, t.dstFlags, t.spellid)
+		Skada:DispatchSets(log_buff, t.dstName, t.dstGUID, t.dstFlags, t.spellid, t.srcName)
 	end
 
 	-- buffs cast right before the pull are already up when combat starts.
@@ -56,10 +66,11 @@ Skada:RegisterModule("Power Buffs", function(L)
 			if guid then
 				local name = Private.UnitFullname and Private.UnitFullname(unit) or UnitName(unit)
 				for i = 1, 40 do
-					local aura, _, _, _, _, _, _, _, _, _, spellid = UnitBuff(unit, i)
+					local aura, _, _, _, _, _, _, caster, _, _, spellid = UnitBuff(unit, i)
 					if not aura then break end
 					if power_buffs[spellid] then
-						Skada:DispatchSets(log_buff, name, guid, Private.DEFAULT_FLAGS, spellid)
+						local srcname = caster and (Private.UnitFullname and Private.UnitFullname(caster) or UnitName(caster))
+						Skada:DispatchSets(log_buff, name, guid, Private.DEFAULT_FLAGS, spellid, srcname)
 					end
 				end
 			end
@@ -68,6 +79,40 @@ Skada:RegisterModule("Power Buffs", function(L)
 
 	function mode:CombatLeave()
 		Private.clearTable(last)
+	end
+
+	function mode_source:Enter(win, id, label)
+		win.spellid, win.spellname = id, label
+		win.title = format(L["%s's sources"], label)
+	end
+
+	function mode_source:Update(win, set)
+		win.title = uformat(L["%s's sources"], win.spellname or L["Unknown"])
+		if not set or not win.actorname or not win.spellid then return end
+
+		local actor = Skada:FindActor(set, win.actorname, win.actorid, true)
+		local sources = actor and actor.powerbuffsources and actor.powerbuffsources[win.spellid]
+		local total = actor and actor.powerbuffspells and actor.powerbuffspells[win.spellid]
+		if not sources or not total or total == 0 then
+			return
+		elseif win.metadata then
+			win.metadata.maxvalue = 0
+		end
+
+		local nr = 0
+		for srcname, count in pairs(sources) do
+			nr = nr + 1
+
+			local d = win:nr(nr)
+			d.id = srcname
+			d.label = srcname
+			local src = set.actors and set.actors[srcname]
+			d.class = src and src.class
+			d.role = src and src.role
+			d.spec = src and src.spec
+			d.value = count
+			format_valuetext(d, total, win.metadata, true)
+		end
 	end
 
 	function mode_spell:Enter(win, id, label, class)
@@ -132,7 +177,8 @@ Skada:RegisterModule("Power Buffs", function(L)
 	end
 
 	function mode:OnEnable()
-		mode_spell.metadata = {}
+		mode_source.metadata = {}
+		mode_spell.metadata = {click1 = mode_source}
 		self.metadata = {
 			showspots = true,
 			ordersort = true,
