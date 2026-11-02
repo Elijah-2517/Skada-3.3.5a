@@ -18,6 +18,7 @@ Skada:RegisterModule("Sunder Counter", function(L, P, _, C, M, O)
 	local active_sunders = {} -- holds sunder targets to consider refreshes
 	local spell_sunder, sunder_link
 	local armor_spells = {
+		[58567] = 47467, -- the Sunder Armor debuff itself (casts use 7386-47467)
 		[7386] = 47467, [7405] = 47467, [8380] = 47467, [11596] = 47467,
 		[11597] = 47467, [25225] = 47467, [47467] = 47467,
 		[8647] = 8647, [8649] = 8647, [8650] = 8647, [11197] = 8647,

@@ -120,7 +120,7 @@ Skada.defaults = {
 		timemesure = 2,
 		tooltiprows = 3,
 		totalflag = 0x10,
-		updatefrequency = 0.5,
+		updatefrequency = 1,
 		feed = "",
 		tooltippos = "smart",
 		columns = {},
@@ -131,6 +131,8 @@ Skada.defaults = {
 		toast = {spawn_point = "BOTTOM", duration = 5, opacity = 0.75},
 		modulesBlocked = {
 			["Absorbed Damage"] = true,
+			["Buffs"] = true,
+			["Debuffs"] = true,
 			["Avoidance & Mitigation"] = true,
 			["CC Breaks"] = true,
 			["Casts"] = true,

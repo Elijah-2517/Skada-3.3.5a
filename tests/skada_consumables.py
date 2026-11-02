@@ -221,14 +221,14 @@ class SunderTests(unittest.TestCase):
 
     def test_each_source_is_credited_for_its_own_aura(self):
         self.check('''
-        aura("SPELL_AURA_APPLIED", 7386, "W1", "Boss")
-        aura("SPELL_AURA_APPLIED_DOSE", 47467, "W2", "Boss", {amount = 2})
+        aura("SPELL_AURA_APPLIED", 58567, "W1", "Boss")
+        aura("SPELL_AURA_APPLIED_DOSE", 58567, "W2", "Boss", {amount = 2})
         assert(count(Skada.current, "W1") == 1 and count(Skada.current, "W2") == 1)
         ''')
 
     def test_other_armor_effects_are_separate_and_not_blocked_by_sunder_delay(self):
         self.check('''
-        aura("SPELL_AURA_APPLIED", 47467, "W1", "Boss", {amount = 1})
+        aura("SPELL_AURA_APPLIED", 58567, "W1", "Boss", {amount = 1})
         aura("SPELL_AURA_APPLIED", 64382, "W1", "Boss")
         aura("SPELL_AURA_APPLIED", 48669, "R1", "Boss")
         local a = Skada.current.actors
@@ -239,8 +239,8 @@ class SunderTests(unittest.TestCase):
 
     def test_useless_sunder_refresh_is_skipped_but_other_spells_refresh_counts(self):
         self.check('''
-        aura("SPELL_AURA_APPLIED", 47467, "W1", "Boss", {amount = 5})
-        aura("SPELL_AURA_REFRESH", 47467, "W1", "Boss")
+        aura("SPELL_AURA_APPLIED", 58567, "W1", "Boss", {amount = 5})
+        aura("SPELL_AURA_REFRESH", 58567, "W1", "Boss")
         assert(count(Skada.current, "W1") == 1)
         aura("SPELL_AURA_REFRESH", 8647, "R1", "Boss")
         aura("SPELL_AURA_REFRESH", 8647, "R1", "Boss")
@@ -256,12 +256,35 @@ class SunderTests(unittest.TestCase):
         assert(Skada.total.sunder == 2)
         ''')
 
+    def test_real_sunder_debuff_id_from_the_combat_log_is_counted(self):
+        self.check('''
+        -- 3.3.5a log: cast 7386, then the debuff 58567 is applied/stacked/refreshed.
+        aura("SPELL_AURA_APPLIED", 58567, "W1", "Boss", {amount = 1})
+        aura("SPELL_AURA_APPLIED_DOSE", 58567, "W1", "Boss", {amount = 2})
+        aura("SPELL_AURA_APPLIED_DOSE", 58567, "W2", "Boss", {amount = 3})
+        assert(count(Skada.current, "W1") == 2 and count(Skada.current, "W2") == 1)
+        assert(Skada.current.actors.W1.sunderspells[47467] == 2)
+        ''')
+
     def test_removal_and_unrelated_spells_do_not_count(self):
         self.check('''
-        aura("SPELL_AURA_REMOVED", 47467, "W1", "Boss")
+        aura("SPELL_AURA_REMOVED", 58567, "W1", "Boss")
         aura("SPELL_AURA_APPLIED", 12345, "W1", "Boss")
         assert(count(Skada.current, "W1") == 0)
         ''')
+
+
+class DefaultsTests(unittest.TestCase):
+    def test_lighter_defaults(self):
+        import re
+        opts = (ADDON / "Core/Options.lua").read_text(encoding="utf-8-sig")
+        self.assertIn("updatefrequency = 1,", opts)
+        blocked = opts[opts.index("modulesBlocked = {"):]
+        blocked = blocked[:blocked.index("}")]
+        self.assertIn('["Buffs"] = true', blocked)
+        self.assertIn('["Debuffs"] = true', blocked)
+        windefaults = opts[opts.index("Skada.windowdefaults = {"):opts.index("local windefaultscopy")]
+        self.assertNotRegex(windefaults, r"smoothing\s*=\s*true")
 
 
 if __name__ == "__main__":

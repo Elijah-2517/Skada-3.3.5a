@@ -2166,6 +2166,22 @@ do
 	local DOT_EVENTS = {SPELL_PERIODIC_DAMAGE = true, SPELL_PERIODIC_MISSED = true}
 	local HOT_EVENTS = {SPELL_PERIODIC_HEAL = true--[[, SPELL_PERIODIC_ENERGIZE = true--]]}
 
+	-- "id.school" labels are built once per spell instead of on every event.
+	local spellstrings = {[false] = {}, [true] = {}}
+	local function get_spellstring(spellid, school, periodic)
+		local byschool = spellstrings[periodic][school]
+		if not byschool then
+			byschool = {}
+			spellstrings[periodic][school] = byschool
+		end
+		local str = byschool[spellid]
+		if not str then
+			str = format(periodic and "-%s.%s" or "%s.%s", spellid, school)
+			byschool[spellid] = str
+		end
+		return str
+	end
+
 	-- combat log handler
 	function Skada:ParseCombatLog(_, timestamp, event, ...)
 		-- disabled or test mode?
@@ -2218,11 +2234,11 @@ do
 		end
 
 		if args.spellid and args.spellschool and not args.spellstring then
-			args.spellstring = format((args.is_dot or args.is_hot) and "-%s.%s" or "%s.%s", args.spellid, args.spellschool)
+			args.spellstring = get_spellstring(args.spellid, args.spellschool, (args.is_dot or args.is_hot) and true or false)
 		end
 
 		if args.extraspellid and args.extraschool and not args.extrastring then
-			args.extrastring = format("%s.%s", args.extraspellid, args.extraschool)
+			args.extrastring = get_spellstring(args.extraspellid, args.extraschool, false)
 		end
 
 		-- the event happens within the group?
