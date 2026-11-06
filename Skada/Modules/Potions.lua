@@ -8,9 +8,9 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 	local mode_cols = nil
 
 	local pairs, format, strsub, uformat = pairs, string.format, string.sub, Private.uformat
-	local GetItemInfo, classcolors, classfmt = GetItemInfo, Skada.classcolors, Skada.classcolors.format
+	local GetItemInfo, GetItemIcon, classfmt = GetItemInfo, GetItemIcon, Skada.classcolors.format
 	local new, del, clear = Private.newTable, Private.delTable, Private.clearTable
-	local prepotionStr, potionStr = "\124c%s%s\124r %s", "\124T%s:14:14:0:0:64:64:4:60:4:60\124t"
+	local potionStr = "\124T%s:14:14:0:0:64:64:4:60:4:60\124t"
 	local potion_ids, prepotion = {}, {}
 
 	local function format_valuetext(d, total, metadata, subview)
@@ -143,9 +143,18 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 		end
 		if P.prepotion then
 			clear(prepotion)
-			for _,entry in pairs(data.pending) do
-				local name = GetItemInfo(entry.item) or entry.item
-				prepotion[#prepotion+1] = format("%s: %s x%d",entry.name,name,entry.count)
+			local used = {}
+			for _, entry in pairs(data.pending) do
+				local icon = GetItemIcon(tonumber(entry.item))
+				local text = icon and format(potionStr, icon) or GetItemInfo(entry.item) or entry.item
+				if entry.count > 1 then text = format("%s x%d", text, entry.count) end
+				local index = used[entry.name]
+				if index then
+					prepotion[index] = format("%s %s", prepotion[index], text)
+				else
+					prepotion[#prepotion + 1] = format("%s %s", classfmt(Private.guidToClass[entry.id], entry.name), text)
+					used[entry.name] = #prepotion
+				end
 			end
 		end
 		wipe(data.pending)

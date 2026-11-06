@@ -11,6 +11,7 @@ function wipe(t) for k in pairs(t) do t[k] = nil end return t end
 GetTime = function() return NOW end
 NOW = 100
 GetItemInfo = function(i) return "item" .. tostring(i) end
+GetItemIcon = function(i) if i ~= 40211 then return "ICON" .. i end end
 GetSpellInfo = function(i) return "spell" .. i, nil, "icon" end
 GetSpellLink = function(i) return "link" .. i end
 GameTooltip = {SetHyperlink = noop, Hide = noop}
@@ -21,7 +22,7 @@ timers = {}
 L = setmetatable({}, {__index = function(_, k) return k end})
 Skada = {
  Private = {newTable = function() return {} end, clearTable = wipe, delTable = function() end,
-  uformat = string.format, DEFAULT_FLAGS = 1},
+  uformat = string.format, DEFAULT_FLAGS = 1, guidToClass = {}},
  classcolors = {format = function(_, n) return n end},
  spellnames = setmetatable({}, {__index = function(_, k) return "s" .. k end}),
  dummyTable = {}, modules = {}, sets = {}, changed = false,
@@ -122,6 +123,20 @@ class ConsumablesTests(unittest.TestCase):
         assert(cur("War") == 2 and total("War") == 2 and cur("Lock") == 1)
         cast("Lock", 53908, 70); cast("Lock", 53908, 140); cast("War", 53908, 200)
         assert(cur("Lock") == 3 and total("Lock") == 3 and cur("War") == 3 and total("War") == 3)
+        ''')
+
+    def test_prepotion_message_shows_icons_once_per_player(self):
+        self.check('''
+        function Skada:Printf(_, text) PRINTED = text end
+        cast("War", 53762, 1); cast("War", 53762, 2); cast("War", 53909, 3)
+        cast("Lock", 53908, 4)              -- no icon available: falls back to the item name
+        start_combat(); mode:CombatLeave()
+        assert(PRINTED:find("War ", 1, true) == PRINTED:find("War", 1, true))
+        local _, wars = PRINTED:gsub("War", "")
+        assert(wars == 1, PRINTED)
+        assert(PRINTED:find("ICON40093:14:14", 1, true) and PRINTED:find(" x2", 1, true), PRINTED)
+        assert(PRINTED:find("ICON40212:14:14", 1, true), PRINTED)
+        assert(PRINTED:find("Lock item40211", 1, true), PRINTED)
         ''')
 
     def test_duplicate_delivery_same_timestamp_counts_once(self):
