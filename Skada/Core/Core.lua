@@ -2597,8 +2597,14 @@ function Skada:PLAYER_REGEN_ENABLED()
 	end
 end
 
+-- Fury of Frostmourne ends the Lich King fight: what follows is the outro, not a new pull.
+local lich_king_outro
+local function in_lich_king_outro()
+	return lich_king_outro and GetTime() < lich_king_outro
+end
+
 function Skada:PLAYER_REGEN_DISABLED()
-	if not self.disabled and not self.current then
+	if not self.disabled and not self.current and not in_lich_king_outro() then
 		self:Debug("\124cffffbb00StartCombat\124r: PLAYER_REGEN_DISABLED")
 		combat_start()
 	end
@@ -3177,7 +3183,11 @@ do
 		src_is_interesting = false
 		dst_is_interesting = false
 
-		if not self.current and trigger_events[t.event] and t.srcName and t.dstName and t.srcGUID ~= t.dstGUID then
+		if t.spellid == 72350 and self.current and self.current.gotboss == 36597 then
+			lich_king_outro = GetTime() + 240 -- 162s roleplay plus the final blow
+		end
+
+		if not self.current and not in_lich_king_outro() and trigger_events[t.event] and t.srcName and t.dstName and t.srcGUID ~= t.dstGUID then
 			src_is_interesting = t:SourceInGroup() or t:SourceIsPet(true)
 
 			if t.event ~= "SPELL_PERIODIC_DAMAGE" then
