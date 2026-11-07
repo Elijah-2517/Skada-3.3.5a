@@ -435,6 +435,22 @@ class TankTests(unittest.TestCase):
         assert(Skada.current.actors.Rogue.tankspells)
         ''')
 
+    def test_shields_count_and_stance_marks_a_tank(self):
+        self.check('''
+        cbs = {}; Skada.RegisterCallback = function(_, e, fn) cbs[e] = fn end
+        Skada.FindActor = function(_, set, name) return set.actors[name] end
+        mode:OnEnable()
+        heal("Priest", "Tank", 100)
+        cbs.Skada_AbsorbLogged("Skada_AbsorbLogged", Skada.current, "Priest", "Tank", 400)
+        cbs.Skada_AbsorbLogged("Skada_AbsorbLogged", Skada.current, "Tank", "Tank", 50)
+        local a = Skada.current.actors.Tank
+        assert(a.tankheal == 500 and a.tankself == 50)
+        Skada.total.actors.Bear = {}
+        aura_fn(ev{event="SPELL_AURA_APPLIED", spellid=9634, dstGUID="Bear", dstName="Bear", dstFlags=1})
+        hit("Bear", 100, 10)
+        assert(Skada.total.actors.Bear.tankstance and Skada.total.actors.Bear.tankspells)
+        ''')
+
     def test_cooldown_up_at_the_pull_counts(self):
         self.check('''
         ROSTER = {"Tank"}; BUFFS = {Tank = {22812}}

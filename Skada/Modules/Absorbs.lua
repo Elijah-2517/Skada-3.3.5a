@@ -269,6 +269,7 @@ Skada:RegisterModule("Absorbs", function(L, P, G)
 
 	local function log_absorb(set, nocount)
 		if not absorb.amount or absorb.amount == 0 then return end
+		Skada.callbacks:Fire("Skada_AbsorbLogged", set, absorb.actorid, absorb.dstName, absorb.amount)
 
 		local actor = Skada:GetActor(set, absorb.actorname, absorb.actorid, absorb.actorflags)
 		if not actor then

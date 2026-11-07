@@ -6,21 +6,23 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 	local mode_cd = mode_spell:NewModule("Cooldowns")
 
 	local pairs, format, tonumber, gmatch = pairs, string.format, tonumber, string.gmatch
-	local UnitGUID, UnitBuff = UnitGUID, UnitBuff
+	local UnitGUID, UnitName, UnitBuff = UnitGUID, UnitName, UnitBuff
 	local SpellInfo = Private.SpellInfo or GetSpellInfo
 	local classfmt = Skada.classcolors.format
 	local mode_cols = nil
 
 	-- defensive buffs seen on the target when a hit lands (3.3.5a ids).
 	local builtin = {
-		871, 12975, 12976, 2565, 55694, 23920, -- warrior
+		871, 12976, 2565, 55694, 23920, -- warrior
 		48792, 55233, 49222, 51271, 48707, 50461, 49039, -- death knight
-		22812, 61336, 50322, 22842, -- druid
+		22812, 61336, 22842, -- druid
 		498, 642, 1022, 5599, 10278, 6940, 64205, 70940, 31821, -- paladin
 		33206, 47788, -- priest
 		5277, 26669, 31224, 45438, 19263, -- others
 		53762 -- Indestructible Potion
 	}
+	-- stances and forms only a tank keeps up, for players whose talents were not read yet.
+	local stances = {[71] = true, [48263] = true, [5487] = true, [9634] = true, [25780] = true}
 	local cooldowns = {}
 	local custom_cache
 	local active = {} -- [guid] = {[spellid] = true}
@@ -33,8 +35,17 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 		for id in gmatch(custom_cache, "%d+") do cooldowns[tonumber(id)] = true end
 	end
 
+	local function is_tank(actor)
+		return actor.role == "TANK" or actor.tankstance
+	end
+
 	local function shown(actor)
-		return not M.tanksonly or actor.role == "TANK"
+		return not M.tanksonly or is_tank(actor)
+	end
+
+	local function mark_tank(set, name, guid, flags)
+		local actor = Skada:GetActor(set, name, guid, flags)
+		if actor then actor.tankstance = true end
 	end
 
 	local function log_heal(set, name, guid, flags, amount, own)
@@ -55,7 +66,7 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 		local actor = Skada:GetActor(set, name, guid, flags)
 		if not actor then return end
 		-- saving this to total set may become a memory hog deluxe.
-		if set == Skada.total and not P.totalidc and actor.role ~= "TANK" then return end
+		if set == Skada.total and not P.totalidc and not is_tank(actor) then return end
 
 		actor.tankspells = actor.tankspells or {}
 		local spell = actor.tankspells[spellid]
@@ -81,8 +92,21 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 		Skada:DispatchSets(log_hit, t.dstName, t.dstGUID, t.dstFlags, t.spellid, amount, active[t.dstGUID])
 	end
 
+	-- shields from the Absorbs module count as healing: they save the healers the same work.
+	local function absorb_logged(_, set, srcGUID, dstName, amount)
+		local actor = set and dstName and amount and amount > 0 and Skada:FindActor(set, dstName)
+		if not actor then return end
+		local key = actor.id == srcGUID and "tankself" or "tankheal"
+		actor[key] = (actor[key] or 0) + amount
+		set[key] = (set[key] or 0) + amount
+	end
+
 	local function aura(t)
-		if not t.spellid or not cooldowns[t.spellid] or not t.dstGUID then return end
+		if not t.spellid or not t.dstGUID then return end
+		if stances[t.spellid] and t.event ~= "SPELL_AURA_REMOVED" then
+			Skada:DispatchSets(mark_tank, t.dstName, t.dstGUID, t.dstFlags)
+		end
+		if not cooldowns[t.spellid] then return end
 		local buffs = active[t.dstGUID]
 		if t.event == "SPELL_AURA_REMOVED" then
 			if buffs then buffs[t.spellid] = nil end
@@ -193,6 +217,7 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 		Private.clearTable(active)
 		for unit in Skada.UnitIterator(true) do
 			local guid = UnitGUID(unit)
+			local tank = GetPartyAssignment and GetPartyAssignment("MAINTANK", unit)
 			for i = 1, 40 do
 				local name, _, _, _, _, _, _, _, _, _, spellid = UnitBuff(unit, i)
 				if not name then break end
@@ -200,6 +225,11 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 					active[guid] = active[guid] or {}
 					active[guid][spellid] = true
 				end
+				tank = tank or stances[spellid]
+			end
+			if guid and tank then
+				local fullname = Private.UnitFullname and Private.UnitFullname(unit) or UnitName(unit)
+				Skada:DispatchSets(mark_tank, fullname, guid, Private.DEFAULT_FLAGS)
 			end
 		end
 	end
@@ -233,6 +263,7 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 		Skada.RegisterMessage(self, "COMBAT_PLAYER_ENTER", "CombatEnter")
 		Skada.RegisterMessage(self, "COMBAT_PLAYER_LEAVE", "CombatLeave")
 		Skada.RegisterCallback(self, "Skada_ApplySettings", "ApplySettings")
+		Skada.RegisterCallback(self, "Skada_AbsorbLogged", absorb_logged)
 		Skada:AddMode(self, "Damage Taken")
 	end
 
