@@ -253,7 +253,9 @@ class SkadaTests(unittest.TestCase):
         Private=Skada.Private; Private.ClearTempUnits=noop
         Skada.SendMessage=noop; Skada.CancelTimer=noop
         P.minsetlength=5
-        local retain,remove_set
+        local retain,remove_set,outro_set,deleted
+        local function is_lich_king_outro(set) return set==outro_set end
+        local function delete_set(set) deleted=set end
         local function process_set(set)
          if retain then table.insert(Skada.sets,1,set) end
         end
@@ -287,6 +289,18 @@ class SkadaTests(unittest.TestCase):
         windows[1]={selectedset=1,selectedmode={moduleName="Damage"},db={wipemode=""},
          Wipe=noop,Toggle=noop,SetSelectedSet=function() error("blind index shift") end}
         combat_end(); assert(windows[1].selectedset=="current")
+
+        fresh(); retain=true; Skada.modes_set=false
+        local main={name="Lich King",success=true}; Skada.sets={main}; Skada.last=main
+        local tail=Skada.current; tail.time=197; outro_set=tail
+        Skada.total.time=500
+        windows[1]={selectedset=1,selectedmode={moduleName="Damage"},db={wipemode=""},
+         Wipe=noop,Toggle=noop,SetSelectedSet=function() error("blind index shift") end}
+        combat_end()
+        assert(#Skada.sets==1 and Skada.sets[1]==main,"outro was saved as a fight")
+        assert(Skada.last==main and deleted==tail and Skada.current==nil)
+        assert(Skada.total.time==500,"outro time leaked into Total")
+        assert(windows[1].selectedset==1)
         ''')
 
     def test_snake_summon_merges_damage_with_correct_hunter(self):

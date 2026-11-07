@@ -65,9 +65,10 @@ class AutostopTests(unittest.TestCase):
         start_stop = core.index("function Skada:StopSegment(")
         end_stop = core.index("function Skada:SetModes()", start_stop)
         # One closure retains the same private state across all event calls.
-        start_outro = core.index("local lich_king_outro")
+        start_outro = core.index("local lich_king_fury")
         end_outro = core.index("\nfunction Skada:PLAYER_REGEN_DISABLED()", start_outro)
         self.lua.execute(core[start_outro:end_outro] + '''
+        outro_check=is_lich_king_outro
         local dead_members,death_counter,starting_members={},0,0
         function reset_members()
         ''' + core[start_reset:end_reset] + "\nend\n" + core[start:end]
@@ -93,38 +94,23 @@ class AutostopTests(unittest.TestCase):
     def check(self, code):
         self.lua.execute(code)
 
-    def test_lich_king_outro_does_not_open_a_new_segment(self):
+    def test_only_a_lich_king_segment_after_fury_is_the_outro(self):
         self.check('''
         setup(5,false)
         P.autostop=false
-        local made=0
-        create_set=function() made=made+1; return {starttime=clock} end
-        Skada.ScheduleTimer=function() end
-        trigger_events.SPELL_DAMAGE=true
-        local function leftover_dot()
-         local t={event='SPELL_DAMAGE',srcName='p1',srcGUID='p1',dstName='LK',dstGUID='lk'}
-         function t:SourceInGroup() return true end
-         function t:SourceIsPet() return false end
-         function t:DestInGroup() return false end
-         function t:DestIsPet() return false end
-         Skada:OnCombatEvent(t)
-        end
         local function fury(boss)
-         Skada.current={starttime=10,gotboss=boss}
+         Skada.current={starttime=clock-500,gotboss=boss}
          Skada:OnCombatEvent({event='SPELL_INSTAKILL',spellid=72350,dstGUID='p1',dstName='p1'})
-         Skada.current=nil
+         return Skada.current
         end
-
         fury(36627)                    -- same spell id on another boss changes nothing
-        leftover_dot()
-        assert(made>=1)
-        made=0; Skada.current=nil; Skada.total=nil
-
-        fury(36597)
-        leftover_dot(); clock=clock+299; leftover_dot()
-        assert(made==0 and Skada.current==nil,'outro opened a segment')
-        clock=clock+2; leftover_dot()
-        assert(made>=1,'next pull was blocked')
+        assert(not outro_check({starttime=clock+2,gotboss=36597}))
+        local fight=fury(36597)
+        assert(not outro_check(fight),'the main fight was treated as the outro')
+        assert(outro_check({starttime=clock+2,gotboss=36597}))
+        assert(outro_check({starttime=clock+299,gotboss=36597}))
+        assert(not outro_check({starttime=clock+300,gotboss=36597}),'next pull was caught')
+        assert(not outro_check({starttime=clock+2,gotboss=36627}))
         ''')
 
     def test_threshold_and_last_death_for_solo_party_and_raid(self):

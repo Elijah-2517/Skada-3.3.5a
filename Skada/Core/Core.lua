@@ -2598,13 +2598,14 @@ function Skada:PLAYER_REGEN_ENABLED()
 end
 
 -- Fury of Frostmourne ends the Lich King fight: what follows is the outro, not a new pull.
-local lich_king_outro
-local function in_lich_king_outro()
-	return lich_king_outro and GetTime() < lich_king_outro
+local lich_king_fury
+local function is_lich_king_outro(set)
+	-- 162s roleplay plus the finishing fight, seen ending up to 205s later
+	return lich_king_fury and set.gotboss == 36597 and set.starttime >= lich_king_fury and set.starttime < lich_king_fury + 300
 end
 
 function Skada:PLAYER_REGEN_DISABLED()
-	if not self.disabled and not self.current and not in_lich_king_outro() then
+	if not self.disabled and not self.current then
 		self:Debug("\124cffffbb00StartCombat\124r: PLAYER_REGEN_DISABLED")
 		combat_start()
 	end
@@ -2691,14 +2692,15 @@ function combat_end()
 
 	-- process segment
 	local selected_sets, restore_sets = save_window_sets()
-	process_set(Skada.current, curtime)
+	local outro = is_lich_king_outro(Skada.current) -- its damage stays in Total, it is just not a fight of its own
+	if not outro then process_set(Skada.current, curtime) end
 
 	-- process phase segments
 	if Skada.tempsets then
 		local setname = Skada.current.name
 		for i = 1, #Skada.tempsets do
 			local set = Skada.tempsets[i]
-			process_set(set, curtime, setname)
+			if outro then delete_set(set) else process_set(set, curtime, setname) end
 		end
 		Skada.tempsets = del(Skada.tempsets)
 	end
@@ -2726,11 +2728,15 @@ function combat_end()
 		end
 	end
 
-	if Skada.current.time and (P.inCombat or Skada.current.time >= P.minsetlength) then
+	if not outro and Skada.current.time and (P.inCombat or Skada.current.time >= P.minsetlength) then
 		Skada.total.time = (Skada.total.time or 0) + Skada.current.time
 	end
 
-	Skada.last = Skada.current
+	if outro then
+		delete_set(Skada.current)
+	else
+		Skada.last = Skada.current
+	end
 	Skada.current = nil
 	Skada.inCombat = false
 	_targets = del(_targets)
@@ -3184,10 +3190,10 @@ do
 		dst_is_interesting = false
 
 		if t.spellid == 72350 and self.current and self.current.gotboss == 36597 then
-			lich_king_outro = GetTime() + 300 -- 162s roleplay plus the finishing fight, seen ending up to 205s later
+			lich_king_fury = time()
 		end
 
-		if not self.current and not in_lich_king_outro() and trigger_events[t.event] and t.srcName and t.dstName and t.srcGUID ~= t.dstGUID then
+		if not self.current and trigger_events[t.event] and t.srcName and t.dstName and t.srcGUID ~= t.dstGUID then
 			src_is_interesting = t:SourceInGroup() or t:SourceIsPet(true)
 
 			if t.event ~= "SPELL_PERIODIC_DAMAGE" then
@@ -3283,7 +3289,7 @@ do
 
 		check_boss_fight(self.current, t, src_is_interesting, dst_is_interesting)
 
-		if self.inCombat and P.deathsnapshot ~= false and t.event == "UNIT_DIED" and t.dstGUID == self.userGUID and not death_snapshot_taken and not UnitIsFeignDeath("player") then
+		if self.inCombat and P.deathsnapshot ~= false and not is_lich_king_outro(self.current) and t.event == "UNIT_DIED" and t.dstGUID == self.userGUID and not death_snapshot_taken and not UnitIsFeignDeath("player") then
 			death_snapshot_taken = true
 			self:SaveDeathSnapshot()
 		end
