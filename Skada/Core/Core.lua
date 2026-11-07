@@ -3184,7 +3184,7 @@ do
 		dst_is_interesting = false
 
 		if t.spellid == 72350 and self.current and self.current.gotboss == 36597 then
-			lich_king_outro = GetTime() + 240 -- 162s roleplay plus the final blow
+			lich_king_outro = GetTime() + 300 -- 162s roleplay plus the finishing fight, seen ending up to 205s later
 		end
 
 		if not self.current and not in_lich_king_outro() and trigger_events[t.event] and t.srcName and t.dstName and t.srcGUID ~= t.dstGUID then

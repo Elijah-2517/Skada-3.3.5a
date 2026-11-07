@@ -121,7 +121,7 @@ class AutostopTests(unittest.TestCase):
         made=0; Skada.current=nil; Skada.total=nil
 
         fury(36597)
-        leftover_dot(); clock=clock+239; leftover_dot()
+        leftover_dot(); clock=clock+299; leftover_dot()
         assert(made==0 and Skada.current==nil,'outro opened a segment')
         clock=clock+2; leftover_dot()
         assert(made>=1,'next pull was blocked')
