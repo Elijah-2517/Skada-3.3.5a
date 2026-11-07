@@ -188,6 +188,17 @@ class ConsumablesTests(unittest.TestCase):
         assert(cur("p1") == 0)
         ''')
 
+    def test_flask_drunk_before_manual_reset_returns_on_first_pull(self):
+        self.check('''
+        mode:CombatEvent(nil, ev{event="SPELL_CAST_SUCCESS", spellid=53758, srcName="p1",
+          srcGUID="p1", srcFlags=1, timestamp=1})
+        mode:DataReset(); Skada.total = nil; Skada.sets[0] = nil
+        ROSTER = {"p1"}; BUFFS = {p1 = {53758}}
+        start_combat()
+        local a = Skada.total.actors.p1
+        assert(a and a.potion == 1 and a.potioninferred["46379"])
+        ''')
+
     def test_total_segment_allows_opening_a_players_consumables(self):
         self.check('''
         mode:OnEnable()
