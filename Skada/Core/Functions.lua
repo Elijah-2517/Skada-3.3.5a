@@ -1182,6 +1182,12 @@ do
 				if id == creature then return true end
 			end
 		end
+		-- Fights such as the Blood Prince Council keep no single boss id, and their DBM name differs.
+		if id == true then
+			for _, creature in ipairs(mod.multiMobPullDetection or info.multiMobPullDetection or Skada.dummyTable) do
+				if Skada.creature_to_fight[creature] == set.mobname then return true end
+			end
+		end
 		return type(set.mobname) == "string" and type(info.name) == "string" and info.name ~= "" and find(strlower(set.mobname), strlower(info.name), 1, true) ~= nil
 	end
 

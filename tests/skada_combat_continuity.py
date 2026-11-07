@@ -74,6 +74,28 @@ class CombatContinuityTests(unittest.TestCase):
         tick(); assert(ended==1)
         ''')
 
+    def test_blood_prince_council_win_is_matched_by_creature_ids(self):
+        self.check('''
+        local dbm_end
+        function Skada:SecureHook(_,_,fn) dbm_end=fn end
+        function Skada:SendMessage() end
+        function Skada:SmartStop() end
+        function Skada:Debug() end
+        Skada.creature_to_fight={[37970]='Council',[37972]='Council',[37973]='Council'}
+        DBM.EndCombat=function() end
+        Skada:SetupBossmod()
+        local council={inCombat=true,creatureId=37970,multiMobPullDetection={37970,37972,37973},
+         combatInfo={mob=37970,name='Another name'}}
+        DBM.Mods={council}
+        Skada.current.gotboss=true; Skada.current.mobname='Other fight'
+        assert(not Skada.Private.IsBossEncounterInProgress(Skada.current))
+        dbm_end(DBM,council); assert(not Skada.current.success,'another fight got the win')
+        Skada.current.mobname='Council'
+        assert(Skada.Private.IsBossEncounterInProgress(Skada.current))
+        dbm_end(DBM,council,true); assert(not Skada.current.success,'a wipe became a win')
+        dbm_end(DBM,council); assert(Skada.current.success)
+        ''')
+
     def test_confirmed_victory_does_not_wait_for_dbm_flag_cleanup(self):
         self.check('''
         groupcombat=false; Skada.current.success=true
