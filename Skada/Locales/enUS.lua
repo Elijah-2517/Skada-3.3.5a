@@ -774,6 +774,18 @@ L["Prints pre-potion after the end of the combat."] = true
 L["Healthstones"] = true
 L["Power Buffs"] = true
 L["%s's power buffs"] = true
+-- tanks module lines --
+L["Tanks"] = true
+L["Cooldowns"] = true
+L["Cooldowns on %s"] = true
+L["%s's hits taken"] = true
+L["No cooldowns"] = true
+L["Own"] = true
+L["Covered"] = true
+L["Only tanks"] = true
+L["opt_tanksonly_desc"] = "Show only players with the tank role."
+L["Extra cooldowns"] = true
+L["opt_tankcustom_desc"] = "Spell IDs of extra defensive buffs, separated by spaces or commas."
 -- resurrect module lines --
 L["Resurrects"] = true
 -- nickname module lines --

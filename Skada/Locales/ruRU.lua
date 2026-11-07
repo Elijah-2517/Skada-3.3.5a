@@ -702,6 +702,18 @@ L["Prints pre-potion after the end of the combat."] = "После окончан
 L["Healthstones"] = "Камень здоровья"
 L["Power Buffs"] = "Усиления"
 L["%s's power buffs"] = "Усиления %s"
+-- tanks module lines --
+L["Tanks"] = "Танки"
+L["Cooldowns"] = "Сейвы"
+L["Cooldowns on %s"] = "Сейвы: %s"
+L["%s's hits taken"] = "Удары по %s"
+L["No cooldowns"] = "Без сейвов"
+L["Own"] = "Своё"
+L["Covered"] = "Под сейвами"
+L["Only tanks"] = "Только танки"
+L["opt_tanksonly_desc"] = "Показывать только игроков с ролью танка."
+L["Extra cooldowns"] = "Дополнительные сейвы"
+L["opt_tankcustom_desc"] = "ID заклинаний дополнительных защитных баффов через пробел или запятую."
 -- resurrect module lines --
 L["Resurrects"] = "Воскрешения"
 -- nickname module lines --

@@ -23,6 +23,7 @@
 	<Script file="Parry.lua" />
 	<Script file="Potions.lua" />
 	<Script file="PowerBuffs.lua" />
+	<Script file="Tanks.lua" />
 	<Script file="Resurrects.lua" />
 	<Script file="Threat.lua" />
 	<Script file="Spellcast.lua" />

@@ -374,5 +374,77 @@ class DefaultsTests(unittest.TestCase):
         self.assertNotRegex(windefaults, r"smoothing\s*=\s*true")
 
 
+class TankTests(unittest.TestCase):
+    def setUp(self):
+        self.lua = LuaRuntime(unpack_returned_tuples=True)
+        self.lua.execute(SETUP)
+        self.lua.globals().TANK_SRC = (ADDON / "Modules/Tanks.lua").read_text(encoding="utf-8-sig")
+        self.lua.execute('''
+        M = {tanksonly = true}
+        mode = load_module("Tanks", TANK_SRC, M)
+        mode:OnEnable()
+        Skada.current = {actors = {}}
+        Skada.total = {actors = {}}
+        heal_fn, hit_fn, aura_fn = CL[1].fn, CL[2].fn, CL[3].fn
+        function heal(src, dst, amount, over)
+          heal_fn(ev{event="SPELL_HEAL", spellid=1, srcGUID=src, dstGUID=dst, dstName=dst, dstFlags=1,
+            amount=amount, overheal=over or 0})
+        end
+        function hit(dst, spell, amount, absorbed)
+          hit_fn(ev{event="SPELL_DAMAGE", spellid=spell, srcGUID="boss", dstGUID=dst, dstName=dst, dstFlags=1,
+            amount=amount, absorbed=absorbed})
+        end
+        function aura(event, dst, spell) aura_fn(ev{event=event, spellid=spell, dstGUID=dst}) end
+        ''')
+
+    def check(self, code):
+        self.lua.execute(code)
+
+    def test_healing_from_others_and_own_are_split_without_overheal(self):
+        self.check('''
+        heal("Priest", "Tank", 1000, 300); heal("Tank", "Tank", 500)
+        heal("Priest", "Tank", 200, 200)              -- pure overheal
+        local a = Skada.current.actors.Tank
+        assert(a.tankheal == 700 and a.tankself == 500)
+        assert(Skada.total.actors.Tank.tankheal == 700)
+        ''')
+
+    def test_hits_count_active_cooldowns_and_bare_hits(self):
+        self.check('''
+        hit("Tank", 100, 5000)                        -- nothing up
+        aura("SPELL_AURA_APPLIED", "Tank", 871)       -- Shield Wall
+        aura("SPELL_AURA_APPLIED", "Tank", 33206)     -- Pain Suppression
+        aura("SPELL_AURA_APPLIED", "Tank", 48470)     -- not a cooldown
+        hit("Tank", 100, 2000, 500)
+        aura("SPELL_AURA_REMOVED", "Tank", 33206)
+        hit("Tank", 100, 3000)
+        local s = Skada.current.actors.Tank.tankspells[100]
+        assert(s.n == 3 and s.amount == 10500)
+        assert(s.cd[0] == 1 and s.cd[871] == 2 and s.cd[33206] == 1 and not s.cd[48470])
+        ''')
+
+    def test_total_keeps_breakdown_only_for_tanks_and_custom_ids_work(self):
+        self.check('''
+        Skada.total.actors.Rogue = {role = "DAMAGER"}
+        Skada.total.actors.Tank = {role = "TANK"}
+        M.tankcustom = "71586, 99999"; mode:ApplySettings()
+        aura("SPELL_AURA_APPLIED", "Tank", 71586)
+        hit("Tank", 100, 10); hit("Rogue", 100, 10)
+        assert(Skada.total.actors.Tank.tankspells[100].cd[71586] == 1)
+        assert(not Skada.total.actors.Rogue.tankspells)
+        assert(Skada.current.actors.Rogue.tankspells)
+        ''')
+
+    def test_cooldown_up_at_the_pull_counts(self):
+        self.check('''
+        ROSTER = {"Tank"}; BUFFS = {Tank = {22812}}
+        mode:CombatEnter()
+        hit("Tank", 100, 10)
+        assert(Skada.current.actors.Tank.tankspells[100].cd[22812] == 1)
+        mode:CombatLeave(); hit("Tank", 100, 10)
+        assert(Skada.current.actors.Tank.tankspells[100].cd[0] == 1)
+        ''')
+
+
 if __name__ == "__main__":
     unittest.main()
