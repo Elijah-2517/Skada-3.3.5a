@@ -2264,7 +2264,8 @@ do
 			callbacks:Fire("Skada_SpellString", args, args.extraspellid, args.extrastring)
 		end
 
-		if event == "SPELL_CAST_SUCCESS" or event == "SPELL_AURA_APPLIED" or event == "SPELL_AURA_REFRESH" then callbacks:Fire("Skada_ConsumableEvent", args) end
+		-- Consumables count casts only; raid aura traffic would fire this for nothing.
+		if event == "SPELL_CAST_SUCCESS" then callbacks:Fire("Skada_ConsumableEvent", args) end
 
 		-- check first hit!
 		if self.profile.firsthit and not self.firsthit and TRIGGER_EVENTS[args.event] then

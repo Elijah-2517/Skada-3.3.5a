@@ -783,7 +783,7 @@ L["No cooldowns"] = true
 L["Own"] = true
 L["Covered"] = true
 L["Only tanks"] = true
-L["opt_tanksonly_desc"] = "Show only players with the tank role."
+L["opt_tanksonly_desc"] = "Record and show tanks only, which keeps the mode light. Takes effect from the next fight."
 L["Extra cooldowns"] = true
 L["opt_tankcustom_desc"] = "Spell IDs of extra defensive buffs, separated by spaces or commas."
 -- resurrect module lines --

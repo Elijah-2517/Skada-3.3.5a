@@ -26,6 +26,12 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 	local cooldowns = {}
 	local custom_cache
 	local active = {} -- [guid] = {[spellid] = true}
+	local tanks = {} -- [guid] = true, rebuilt each pull
+
+	-- with "Only tanks" the other 20+ players are skipped before any set lookup.
+	local function tracked(guid)
+		return not M.tanksonly or tanks[guid]
+	end
 
 	local function refresh_cooldowns()
 		if custom_cache == (M.tankcustom or "") then return end
@@ -58,7 +64,7 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 
 	local function spell_heal(t)
 		local amount = (t.amount or 0) - (t.overheal or 0)
-		if amount <= 0 or not t.dstGUID then return end
+		if amount <= 0 or not t.dstGUID or not tracked(t.dstGUID) then return end
 		Skada:DispatchSets(log_heal, t.dstName, t.dstGUID, t.dstFlags, amount, t.srcGUID == t.dstGUID)
 	end
 
@@ -86,7 +92,7 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 	end
 
 	local function spell_damage(t)
-		if not t.spellid or not t.dstGUID or t.srcGUID == t.dstGUID then return end
+		if not t.spellid or not t.dstGUID or t.srcGUID == t.dstGUID or not tracked(t.dstGUID) then return end
 		local amount = (t.amount or 0) + (t.absorbed or 0)
 		if amount <= 0 then return end
 		Skada:DispatchSets(log_hit, t.dstName, t.dstGUID, t.dstFlags, t.spellid, amount, active[t.dstGUID])
@@ -95,7 +101,7 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 	-- shields from the Absorbs module count as healing: they save the healers the same work.
 	local function absorb_logged(_, set, srcGUID, dstName, amount)
 		local actor = set and dstName and amount and amount > 0 and Skada:FindActor(set, dstName)
-		if not actor then return end
+		if not actor or not tracked(actor.id) then return end
 		local key = actor.id == srcGUID and "tankself" or "tankheal"
 		actor[key] = (actor[key] or 0) + amount
 		set[key] = (set[key] or 0) + amount
@@ -104,6 +110,7 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 	local function aura(t)
 		if not t.spellid or not t.dstGUID then return end
 		if stances[t.spellid] and t.event ~= "SPELL_AURA_REMOVED" then
+			tanks[t.dstGUID] = true
 			Skada:DispatchSets(mark_tank, t.dstName, t.dstGUID, t.dstFlags)
 		end
 		if not cooldowns[t.spellid] then return end
@@ -215,9 +222,11 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 	-- buffs used right before the pull are already up when combat starts.
 	function mode:CombatEnter()
 		Private.clearTable(active)
+		Private.clearTable(tanks)
+		local GetUnitRole = Skada.GetUnitRole
 		for unit in Skada.UnitIterator(true) do
 			local guid = UnitGUID(unit)
-			local tank = GetPartyAssignment and GetPartyAssignment("MAINTANK", unit)
+			local tank = (guid and GetUnitRole and GetUnitRole(guid) == "TANK") or (GetPartyAssignment and GetPartyAssignment("MAINTANK", unit))
 			for i = 1, 40 do
 				local name, _, _, _, _, _, _, _, _, _, spellid = UnitBuff(unit, i)
 				if not name then break end
@@ -228,6 +237,7 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 				tank = tank or stances[spellid]
 			end
 			if guid and tank then
+				tanks[guid] = true
 				local fullname = Private.UnitFullname and Private.UnitFullname(unit) or UnitName(unit)
 				Skada:DispatchSets(mark_tank, fullname, guid, Private.DEFAULT_FLAGS)
 			end
@@ -258,7 +268,9 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 		local flags_dst = {dst_is_interesting_nopets = true}
 		Skada:RegisterForCL(spell_heal, flags_dst, "SPELL_HEAL", "SPELL_PERIODIC_HEAL")
 		Skada:RegisterForCL(spell_damage, flags_dst,
-			"SPELL_DAMAGE", "SPELL_PERIODIC_DAMAGE", "SPELL_BUILDING_DAMAGE", "RANGE_DAMAGE", "SWING_DAMAGE")
+			"SPELL_DAMAGE", "SPELL_PERIODIC_DAMAGE", "SPELL_BUILDING_DAMAGE", "RANGE_DAMAGE", "SWING_DAMAGE",
+			-- a hit fully eaten by a shield arrives as a miss with the absorbed amount
+			"SPELL_MISSED", "SPELL_PERIODIC_MISSED", "RANGE_MISSED", "SWING_MISSED")
 		Skada:RegisterForCL(aura, flags_dst, "SPELL_AURA_APPLIED", "SPELL_AURA_REFRESH", "SPELL_AURA_REMOVED")
 		Skada.RegisterMessage(self, "COMBAT_PLAYER_ENTER", "CombatEnter")
 		Skada.RegisterMessage(self, "COMBAT_PLAYER_LEAVE", "CombatLeave")

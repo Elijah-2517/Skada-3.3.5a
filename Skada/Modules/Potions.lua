@@ -123,9 +123,8 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 	end
 
 	function mode:CombatEvent(_, t)
-		if t.event ~= "SPELL_CAST_SUCCESS" or not t:SourceInGroup(true) then return end
 		local item = potion_ids[t.spellid] or long_ids[t.spellid]
-		if not item then return end
+		if not item or t.event ~= "SPELL_CAST_SUCCESS" or not t:SourceInGroup(true) then return end
 		local data = state()
 		-- A duplicate delivery of the same cast must not add another use.
 		local key = t.srcGUID .. ":" .. t.spellid

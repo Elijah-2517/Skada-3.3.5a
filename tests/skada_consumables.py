@@ -380,7 +380,7 @@ class TankTests(unittest.TestCase):
         self.lua.execute(SETUP)
         self.lua.globals().TANK_SRC = (ADDON / "Modules/Tanks.lua").read_text(encoding="utf-8-sig")
         self.lua.execute('''
-        M = {tanksonly = true}
+        M = {tanksonly = false}
         mode = load_module("Tanks", TANK_SRC, M)
         mode:OnEnable()
         Skada.current = {actors = {}}
@@ -449,6 +449,24 @@ class TankTests(unittest.TestCase):
         aura_fn(ev{event="SPELL_AURA_APPLIED", spellid=9634, dstGUID="Bear", dstName="Bear", dstFlags=1})
         hit("Bear", 100, 10)
         assert(Skada.total.actors.Bear.tankstance and Skada.total.actors.Bear.tankspells)
+        ''')
+
+    def test_only_tanks_skips_other_players_before_any_lookup(self):
+        self.check('''
+        M.tanksonly = true
+        Skada.GetUnitRole = function(guid) return guid == "Tank" and "TANK" or "NONE" end
+        mode:OnEnable()
+        ROSTER = {"Tank", "Mage", "Bear"}; BUFFS = {Bear = {9634}}
+        mode:CombatEnter()
+        local lookups = 0; local get = Skada.GetActor
+        Skada.GetActor = function(...) lookups = lookups + 1; return get(...) end
+        for i = 1, 100 do heal("Priest", "Mage", 10); hit("Mage", 100, 10) end
+        assert(lookups == 0 and not Skada.current.actors.Mage)
+        heal("Priest", "Tank", 10); hit("Bear", 100, 10)
+        assert(Skada.current.actors.Tank.tankheal == 10 and Skada.current.actors.Bear.tankspells)
+        hit_fn(ev{event="SPELL_MISSED", spellid=100, srcGUID="boss", dstGUID="Tank", dstName="Tank", dstFlags=1, amount=0, absorbed=900})
+        hit_fn(ev{event="SWING_MISSED", spellid=6603, srcGUID="boss", dstGUID="Tank", dstName="Tank", dstFlags=1, amount=0})
+        assert(Skada.current.actors.Tank.tankspells[100].amount == 900 and not Skada.current.actors.Tank.tankspells[6603])
         ''')
 
     def test_cooldown_up_at_the_pull_counts(self):
