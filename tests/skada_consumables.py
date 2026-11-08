@@ -480,5 +480,59 @@ class TankTests(unittest.TestCase):
         ''')
 
 
+class MechanicTests(unittest.TestCase):
+    def setUp(self):
+        self.lua = LuaRuntime(unpack_returned_tuples=True)
+        self.lua.execute(SETUP)
+        self.lua.globals().MECH_SRC = (ADDON / "Modules/Mechanics.lua").read_text(encoding="utf-8-sig")
+        self.lua.execute('''
+        NAMES = {[69674] = "Infection", [70337] = "Plague", [12345] = "Custom"}
+        GetSpellInfo = function(i) return NAMES[i], nil, "icon" .. i end
+        M = {}
+        mode = load_module("Mechanics", MECH_SRC, M)
+        M.mechuptime = true
+        mode:OnEnable()
+        Skada.current = {actors = {}}
+        Skada.total = {actors = {}}
+        aura_fn = CL[1].fn
+        function aura(event, name, dst)
+          aura_fn(ev{event=event, spellname=name, dstGUID=dst, dstName=dst, dstFlags=1})
+        end
+        function spell(set, dst, id) return set.actors[dst].mechspells[id] end
+        ''')
+
+    def check(self, code):
+        self.lua.execute(code)
+
+    def test_counts_by_name_for_any_difficulty_and_times_until_removed(self):
+        self.check('''
+        NOW = 10; aura("SPELL_AURA_APPLIED", "Infection", "Mage")
+        NOW = 14; aura("SPELL_AURA_REFRESH", "Infection", "Mage")   -- same debuff kept up
+        NOW = 22; aura("SPELL_AURA_REMOVED", "Infection", "Mage")
+        aura("SPELL_AURA_APPLIED", "Gift of the Wild", "Mage")
+        local s = spell(Skada.current, "Mage", 69674)
+        assert(s.n == 2 and s.t == 12 and Skada.current.actors.Mage.mech == 2)
+        assert(spell(Skada.total, "Mage", 69674).t == 12)
+        ''')
+
+    def test_open_debuffs_close_at_combat_end(self):
+        self.check('''
+        NOW = 0; aura("SPELL_AURA_APPLIED", "Plague", "Tank")
+        NOW = 30; mode:CombatLeave()
+        assert(spell(Skada.current, "Tank", 70337).t == 30)
+        NOW = 40; aura("SPELL_AURA_REMOVED", "Plague", "Tank")
+        assert(spell(Skada.current, "Tank", 70337).t == 30)
+        ''')
+
+    def test_duration_off_keeps_counts_and_custom_ids_work(self):
+        self.check('''
+        M.mechuptime = false; M.mechcustom = "12345"; mode:ApplySettings()
+        NOW = 0; aura("SPELL_AURA_APPLIED", "Custom", "Rogue")
+        NOW = 9; aura("SPELL_AURA_REMOVED", "Custom", "Rogue")
+        local s = spell(Skada.current, "Rogue", 12345)
+        assert(s.n == 1 and not s.t)
+        ''')
+
+
 if __name__ == "__main__":
     unittest.main()

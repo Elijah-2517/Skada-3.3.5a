@@ -786,6 +786,13 @@ L["Only tanks"] = true
 L["opt_tanksonly_desc"] = "Record and show tanks only, which keeps the mode light. Takes effect from the next fight."
 L["Extra cooldowns"] = true
 L["opt_tankcustom_desc"] = "Spell IDs of extra defensive buffs, separated by spaces or commas."
+-- mechanics module lines --
+L["Mechanics"] = true
+L["%s's mechanics"] = true
+L["Track duration"] = true
+L["opt_mechuptime_desc"] = "Also record how long each mechanic stayed on the player. Turn off to keep only the counts."
+L["Extra mechanics"] = true
+L["opt_mechcustom_desc"] = "Spell IDs of extra debuffs, separated by spaces or commas. Any difficulty of the same spell is counted."
 -- resurrect module lines --
 L["Resurrects"] = true
 -- nickname module lines --
