@@ -18,8 +18,9 @@ Skada:RegisterModule("Tanks", function(L, P, _, _, M, O)
 		22812, 61336, 22842, -- druid
 		498, 642, 1022, 5599, 10278, 6940, 64205, 70940, 31821, -- paladin
 		33206, 47788, -- priest
-		5277, 26669, 31224, 45438, 19263, -- others
-		53762 -- Indestructible Potion
+		5277, 26669, 31224, 45438, 19263, 47585, 30823, -- others
+		53762, -- Indestructible Potion
+		71586, 71638 -- Corroded Skeleton Key, Sindragosa's Flawless Fang
 	}
 	-- stances and forms only a tank keeps up, for players whose talents were not read yet.
 	local stances = {[71] = true, [48263] = true, [5487] = true, [9634] = true, [25780] = true}

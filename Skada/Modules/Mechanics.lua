@@ -21,7 +21,7 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 		72999, -- Blood Princes: Shadow Prison
 		70867, 71340, 71264, 70923, -- Lana'thel: Essence, Pact of the Darkfallen, Swarming Shadows, Uncontrollable Frenzy
 		70126, 69762, 69766, 70106, 70128, 70157, -- Sindragosa: Frost Beacon, Unchained Magic, Instability, Chilled to the Bone, Mystic Buffet, Ice Tomb
-		70337, 68980, 69409, 70541, 72743, -- Lich King: Necrotic Plague, Harvest Soul, Soul Reaper, Infest, Defile
+		70337, 68980, 74297, 69409, 70541, 72743, -- Lich King: Necrotic Plague, Harvest Soul (+ heroic name), Soul Reaper, Infest, Defile
 		74562, 74792 -- Halion: Fiery Combustion, Soul Consumption
 	}
 	local names = {} -- [localized name] = spell id used for the icon
