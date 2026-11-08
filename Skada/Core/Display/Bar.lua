@@ -30,6 +30,8 @@ Skada:RegisterDisplay("Bar Display", "mod_bar_desc", function(L, P, G, _, _, O)
 	local rolecoords = Skada.rolecoords
 	local specicons = Skada.specicons
 	local speccoords = Skada.speccoords
+	local hdspecicons = Skada.hdspecicons
+	local hdspeccoords = Skada.hdspeccoords
 	local spellschools = Skada.spellschools
 	local windows = Skada.windows
 
@@ -671,6 +673,9 @@ Skada:RegisterDisplay("Bar Display", "mod_bar_desc", function(L, P, G, _, _, O)
 		local function bar_seticon(bar, db, data, icon)
 			if icon then
 				bar:SetIcon(icon)
+				bar:ShowIcon()
+			elseif db.specicons and db.hdspecicons and data.spec and hdspeccoords[data.spec] then
+				bar:SetIcon(hdspecicons, hdspeccoords(data.spec))
 				bar:ShowIcon()
 			elseif db.specicons and data.spec and speccoords[data.spec] then
 				bar:SetIcon(specicons, speccoords(data.spec))
@@ -1374,6 +1379,18 @@ Skada:RegisterDisplay("Bar Display", "mod_bar_desc", function(L, P, G, _, _, O)
 								if db.specicons and not db.classicons then
 									db.classicons = true
 								end
+								win:Wipe(true)
+								Skada:ApplySettings(win)
+							end
+						},
+						hdspecicons = {
+							type = "toggle",
+							name = L["HongDou spec icons"],
+							desc = L["opt_hdspecicons_desc"],
+							order = 165,
+							disabled = function() return not db.specicons end,
+							set = function()
+								db.hdspecicons = not db.hdspecicons
 								win:Wipe(true)
 								Skada:ApplySettings(win)
 							end
@@ -2229,6 +2246,53 @@ Skada:RegisterDisplay("Bar Display", "mod_bar_desc", function(L, P, G, _, _, O)
 					display = "bar",
 					snapto = true
 				},
+				["Flat Dark"] = {
+					barspacing = 1,
+					bartexture = "Solid",
+					barfont = "Friz Quadrata TT",
+					barfontflags = "OUTLINE",
+					barfontsize = 11,
+					barheight = 17,
+					barwidth = 240,
+					baroffset = 0,
+					barorientation = 1,
+					barcolor = {r = 0.3, g = 0.3, b = 0.3, a = 1},
+					barbgcolor = {r = 0.08, g = 0.08, b = 0.08, a = 0.7},
+					classcolorbars = true,
+					classicons = true,
+					specicons = true,
+					hdspecicons = true,
+					buttons = {menu = true, reset = true, report = true, mode = true, segment = true},
+					title = {
+						textcolor = {r = 1, g = 1, b = 1, a = 1},
+						height = 20,
+						font = "Friz Quadrata TT",
+						fontsize = 12,
+						texture = "Solid",
+						bordercolor = {r = 0, g = 0, b = 0, a = 1},
+						bordertexture = "None",
+						borderthickness = 0,
+						borderinsets = 0,
+						color = {r = 0.15, g = 0.15, b = 0.15, a = 0.95},
+						fontflags = "OUTLINE"
+					},
+					background = {
+						height = 195,
+						texture = "None",
+						bordercolor = {r = 0, g = 0, b = 0, a = 1},
+						bordertexture = "None",
+						borderthickness = 0,
+						borderinsets = 0,
+						color = {r = 0.05, g = 0.05, b = 0.05, a = 0.8},
+						tilesize = 0
+					},
+					strata = "LOW",
+					scale = 1,
+					enabletitle = true,
+					titleset = true,
+					display = "bar",
+					snapto = true
+				},
 				["Omen Threat Meter"] = {
 					barspacing = 1,
 					bartexture = "Blizzard",
@@ -2727,6 +2791,8 @@ Skada:RegisterDisplay("Bar Display", "mod_bar_desc", function(L, P, G, _, _, O)
 			rolecoords = rolecoords or Skada.rolecoords
 			specicons = specicons or Skada.specicons
 			speccoords = speccoords or Skada.speccoords
+			hdspecicons = hdspecicons or Skada.hdspecicons
+			hdspeccoords = hdspeccoords or Skada.hdspeccoords
 			spellschools = spellschools or Skada.spellschools
 			windows = windows or Skada.windows
 
