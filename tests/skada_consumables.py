@@ -252,6 +252,20 @@ class SunderTests(unittest.TestCase):
         assert(count(Skada.current, "W1") == 1 and count(Skada.current, "W2") == 1)
         ''')
 
+    def test_stacks_go_to_the_warrior_who_cast_not_the_debuff_owner(self):
+        self.check('''
+        NOW = 10
+        local cast = CL[2].fn
+        local function c(src) cast(ev{event="SPELL_CAST_SUCCESS", spellid=47467, srcName=src, srcGUID="g"..src,
+          srcFlags=1, dstName="Boss", dstGUID="gBoss"}) end
+        c("W1"); aura("SPELL_AURA_APPLIED", 58567, "W1", "Boss", {amount = 1})
+        for i = 2, 5 do c(i % 2 == 0 and "W2" or "W3"); aura("SPELL_AURA_APPLIED_DOSE", 58567, "W1", "Boss", {amount = i}) end
+        assert(count(Skada.current, "W1") == 1 and count(Skada.current, "W2") == 2 and count(Skada.current, "W3") == 2)
+        NOW = 20                                                  -- stale cast: fall back to the aura source
+        aura("SPELL_AURA_REMOVED", 58567, "W1", "Boss"); aura("SPELL_AURA_APPLIED", 58567, "W1", "Boss", {amount = 1})
+        assert(count(Skada.current, "W1") == 2)
+        ''')
+
     def test_other_armor_effects_are_separate_and_not_blocked_by_sunder_delay(self):
         self.check('''
         aura("SPELL_AURA_APPLIED", 58567, "W1", "Boss", {amount = 1})
@@ -617,6 +631,10 @@ class DeathSavesTests(unittest.TestCase):
         Skada.IsInPvP = function() return false end
         UnitIsFeignDeath = function() return false end
         date = os.date; time = function() return NOW end
+        TALENTS, GLYPHS = {}, {}
+        LibStub = function() return {
+          GUIDHasTalent = function(_, guid, name) return TALENTS[guid .. name] end,
+          GUIDHasGlyph = function(_, guid, id) return GLYPHS[guid .. id] end} end
         M = {deathready = true, deathlogevents = 14, deathlogthreshold = 1000}
         mode = load_module("Deaths", DEATHS_SRC, M)
         mode:OnEnable()
@@ -633,6 +651,7 @@ class DeathSavesTests(unittest.TestCase):
         function cast(name, id) fn_for("SPELL_CAST_SUCCESS", 2)(ev{event="SPELL_CAST_SUCCESS", spellid=id, srcName=name}) end
         function lock(event, name, id) fn_for("SPELL_AURA_APPLIED", 4)(ev{event=event, spellid=id, dstName=name}) end
         function ready(name) return Skada.current.actors[name].deathlog[1].ready end
+        function who(name, class, role) local a = Skada:GetActor(Skada.current, name, "g"..name); a.class, a.role = class, role end
         ''')
 
     def test_ready_saves_are_listed_and_cooldowns_and_lockouts_respected(self):
@@ -651,6 +670,29 @@ class DeathSavesTests(unittest.TestCase):
         assert(not ready("Rogue"))                                  -- never seen pressing a save
         M.deathready = false; Skada.current = {actors = {}}
         hit("Pala"); die("Pala"); assert(not ready("Pala"))
+        ''')
+
+    def test_class_and_talent_saves_count_without_being_seen_and_talents_cut_cooldowns(self):
+        self.lua.execute('''
+        NOW = 1000
+        who("Mage", "MAGE"); hit("Mage"); die("Mage")
+        assert(ready("Mage")[1] == 45438)                          -- never pressed, still ready
+        who("Dps", "WARRIOR", "DAMAGER"); hit("Dps"); die("Dps"); assert(not ready("Dps"))
+        who("Tank", "WARRIOR", "TANK"); hit("Tank"); die("Tank"); assert(ready("Tank")[1] == 871)
+        TALENTS["gPriest" .. "s47585"] = 1
+        who("Priest", "PRIEST"); hit("Priest"); die("Priest"); assert(ready("Priest")[1] == 47585)
+        who("Shadow2", "PRIEST"); hit("Shadow2"); die("Shadow2"); assert(not ready("Shadow2"))
+        -- Elusiveness 2/2: Cloak 90 -> 60 sec
+        TALENTS["gRogue" .. "s13981"] = 2
+        cast("Rogue", 31224); NOW = 1065
+        Skada.current = {actors = {}}; who("Rogue", "ROGUE"); hit("Rogue"); die("Rogue")
+        local r = ready("Rogue"); assert(r[1] == 26669 and r[2] == 31224)
+        -- Ice Floes 3/3 and Cold Snap
+        TALENTS["gMage" .. "s31670"] = 3
+        cast("Mage", 45438); NOW = 1065 + 241
+        Skada.current = {actors = {}}; who("Mage", "MAGE"); hit("Mage"); die("Mage"); assert(ready("Mage")[1] == 45438)
+        cast("Mage", 45438); cast("Mage", 11958)
+        Skada.current = {actors = {}}; who("Mage", "MAGE"); hit("Mage"); die("Mage"); assert(ready("Mage")[1] == 45438)
         ''')
 
 

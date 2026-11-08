@@ -25,6 +25,12 @@ Skada:RegisterModule("Sunder Counter", function(L, P, _, C, M, O)
 		[11198] = 8647, [26866] = 8647, [48669] = 8647,
 		[64382] = 64382
 	}
+	-- the shared debuff keeps its first caster on DOSE/REFRESH, so stacks go to whoever cast last.
+	local cast_spells = {
+		[7386] = true, [7405] = true, [8380] = true, [11596] = true, [11597] = true, [25225] = true, [47467] = true,
+		[20243] = true, [30016] = true, [30022] = true, [47497] = true, [47498] = true -- Devastate
+	}
+	local last_cast = {} -- [dstGUID] = {name, guid, flags, time}
 	local mode_cols = nil
 
 	local function format_valuetext(d, total, metadata, subview)
@@ -103,8 +109,10 @@ Skada:RegisterModule("Sunder Counter", function(L, P, _, C, M, O)
 			active_sunders[t.dstGUID] = curtime + M.sunderdelay
 		end
 
-		-- Aura events identify the actual caster, including Sunder applied by Devastate.
-		Skada:DispatchSets(log_sunder, t.srcName, t.srcGUID, t.srcFlags, t.dstName, spellid)
+		local name, guid, flags = t.srcName, t.srcGUID, t.srcFlags
+		local c = spellid == 47467 and last_cast[t.dstGUID]
+		if c and curtime - c[4] < 1 then name, guid, flags = c[1], c[2], c[3] end
+		Skada:DispatchSets(log_sunder, name, guid, flags, t.dstName, spellid)
 		if spellid ~= 47467 then return end
 
 		-- announce disabled or only for bosses
@@ -133,8 +141,16 @@ Skada:RegisterModule("Sunder Counter", function(L, P, _, C, M, O)
 		end
 	end
 
+	local function sunder_cast(t)
+		if not cast_spells[t.spellid] or not t.dstGUID or not t.srcName then return end
+		local c = last_cast[t.dstGUID] or {}
+		last_cast[t.dstGUID] = c
+		c[1], c[2], c[3], c[4] = t.srcName, t.srcGUID, t.srcFlags, Skada._Time or GetTime()
+	end
+
 	local function unit_died(t)
 		active_sunders[t.dstGUID] = nil
+		last_cast[t.dstGUID] = nil
 		if sunder_timers and sunder_timers[t.dstGUID] then
 			Skada:CancelTimer(sunder_timers[t.dstGUID], true)
 			sunder_timers[t.dstGUID] = nil
@@ -281,6 +297,8 @@ Skada:RegisterModule("Sunder Counter", function(L, P, _, C, M, O)
 			"SPELL_AURA_REMOVED"
 		)
 
+		Skada:RegisterForCL(sunder_cast, flags_src, "SPELL_CAST_SUCCESS")
+
 		Skada:RegisterForCL(
 			unit_died,
 			{dst_is_not_interesting = true},
@@ -297,6 +315,7 @@ Skada:RegisterModule("Sunder Counter", function(L, P, _, C, M, O)
 	function mode:OnDisable()
 		self:CombatLeave()
 		Skada:UnregisterFromCL(sunder_applied)
+		Skada:UnregisterFromCL(sunder_cast)
 		Skada:UnregisterFromCL(unit_died)
 		Skada.UnregisterAllMessages(self)
 		Skada.UnregisterAllCallbacks(self)
@@ -306,6 +325,7 @@ Skada:RegisterModule("Sunder Counter", function(L, P, _, C, M, O)
 	function mode:CombatLeave()
 		clear(sunder_targets)
 		clear(active_sunders)
+		clear(last_cast)
 		for _, timer in pairs(sunder_timers or Skada.dummyTable) do Skada:CancelTimer(timer, true) end
 		if sunder_timers then sunder_timers = del(sunder_timers) end
 	end

@@ -20,28 +20,72 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 	local mode_cols, submode_cols = nil, nil
 	local death_timers -- holds Spirit of Redemption scheduled death timers
 
-	-- personal saves and their base cooldowns. A save counts as owned only once the player
-	-- was seen using it this session, so talents and glyphs need no lookup.
-	-- shortcut: base cooldowns, a talented or glyphed save may read "not ready" a bit too long.
+	-- personal saves and their base cooldowns.
 	local saves = {
 		[45438] = 300, [47585] = 180, [642] = 300, [498] = 180, [22812] = 60, [61336] = 180,
 		[871] = 300, [12975] = 180, [48792] = 120, [48707] = 45, [31224] = 90, [26669] = 180,
 		[19263] = 90, [30823] = 60
 	}
+	-- every level 80 of the class has these. Shield Wall needs a shield, so warriors get it as tanks only.
+	local class_saves = {
+		MAGE = {45438}, PALADIN = {642, 498}, DRUID = {22812}, DEATHKNIGHT = {48792, 48707},
+		ROGUE = {31224, 26669}, HUNTER = {19263}
+	}
+	local talent_saves = {[47585] = true, [61336] = true, [12975] = true, [30823] = true} -- talent name = spell name
+	-- cooldown cuts: talent spell id + seconds per point (or a list of fractions per rank), glyph spell id + seconds.
+	-- shortcut: glyph spell ids are not checked in game, a wrong one only means no cut.
+	local cd_cuts = {
+		[45438] = {talent = 31670, pct = {0.07, 0.14, 0.20}},  -- Ice Floes
+		[642] = {talent = 53709, per = 30}, [498] = {talent = 53709, per = 30}, -- Sacred Duty
+		[871] = {talent = 12312, per = 30, glyph = 63329, glyphcut = 120}, -- Improved Disciplines, Glyph of Shield Wall
+		[12975] = {glyph = 63325, glyphcut = 60}, -- Glyph of Last Stand
+		[31224] = {talent = 13981, per = 15}, -- Elusiveness
+		[26669] = {talent = 13742, per = 30}, -- Endurance
+		[47585] = {glyph = 63229, glyphcut = 45} -- Glyph of Dispersion
+	}
+	local resets = {[11958] = {45438}, [14185] = {26669}, [23989] = {19263}} -- Cold Snap, Preparation, Readiness
 	local lockouts = {[25771] = {642, 498}, [41425] = {45438}} -- Forbearance, Hypothermia
 	local save_used, save_locked = {}, {} -- [name] = {[spellid] = GetTime()}, [name] = {[spellid] = true}
+	local LGT, empty = LibStub("LibGroupTalents-1.0", true), {}
 
-	local function ready_saves(name)
-		local used = save_used[name]
-		if not used then return end
-		local now, locked, list = GetTime(), save_locked[name]
-		for spellid, at in pairs(used) do
-			if now - at >= saves[spellid] and not (locked and locked[spellid]) then
+	local function cooldown(spellid, guid)
+		local cd, cut = saves[spellid], cd_cuts[spellid]
+		if not cut or not LGT or not guid then return cd end
+		local points = cut.talent and LGT:GUIDHasTalent(guid, spellnames[cut.talent])
+		if points and cut.pct then
+			cd = cd * (1 - (cut.pct[points] or cut.pct[#cut.pct]))
+		elseif points then
+			cd = cd - points * cut.per
+		end
+		if cut.glyph and LGT:GUIDHasGlyph(guid, cut.glyph) then cd = cd - cut.glyphcut end
+		return cd
+	end
+
+	local function owns(spellid, guid, class, role)
+		if class == "WARRIOR" and spellid == 871 then return role == "TANK" end
+		return talent_saves[spellid] and LGT and guid and LGT:GUIDHasTalent(guid, spellnames[spellid]) and true
+	end
+
+	-- a save is ready if the player has it (class, talents or seen pressing it), it is off cooldown and not locked out.
+	local function ready_saves(name, guid, class, role)
+		local used, locked, now, list = save_used[name] or empty, save_locked[name], GetTime()
+		local function check(spellid)
+			if list and list[spellid] then return end
+			local at = used[spellid]
+			if (not at or now - at >= cooldown(spellid, guid)) and not (locked and locked[spellid]) then
 				list = list or {}
+				list[spellid] = true
 				list[#list + 1] = spellid
 			end
 		end
-		if list then tsort(list) end
+		for spellid in pairs(used) do check(spellid) end
+		for _, spellid in pairs(class and class_saves[class] or empty) do check(spellid) end
+		for spellid in pairs(saves) do
+			if not used[spellid] and owns(spellid, guid, class, role) then check(spellid) end
+		end
+		if not list then return end
+		for i = 1, #list do list[list[i]] = nil end
+		tsort(list)
 		return list
 	end
 
@@ -193,7 +237,7 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 			deathlog.log[#deathlog.log + 1] = log
 		end
 
-		if M.deathready then deathlog.ready = ready_saves(actorname) end
+		if M.deathready then deathlog.ready = ready_saves(actorname, actorid, actor.class, actor.role) end
 
 		-- announce death
 		if M.deathannounce and set ~= Skada.total then
@@ -352,9 +396,11 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 	end
 
 	local function save_cast(t)
-		if not saves[t.spellid] or not t.srcName then return end
-		save_used[t.srcName] = save_used[t.srcName] or {}
-		save_used[t.srcName][t.spellid] = GetTime()
+		if not t.srcName or not (saves[t.spellid] or resets[t.spellid]) then return end
+		local used = save_used[t.srcName] or {}
+		save_used[t.srcName] = used
+		if saves[t.spellid] then used[t.spellid] = GetTime() return end
+		for _, spellid in pairs(resets[t.spellid]) do used[spellid] = nil end
 	end
 
 	local function lockout(t)
