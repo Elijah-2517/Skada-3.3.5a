@@ -793,6 +793,13 @@ L["Track duration"] = true
 L["opt_mechuptime_desc"] = "Also record how long each mechanic stayed on the player. Turn off to keep only the counts."
 L["Extra mechanics"] = true
 L["opt_mechcustom_desc"] = "Spell IDs of extra debuffs, separated by spaces or commas. Any difficulty of the same spell is counted."
+L["Val'kyr grab"] = true
+L["Saves ready"] = true
+L["opt_deathready_desc"] = "Adds to the death log the personal saves that were off cooldown and not pressed. Only saves the player used earlier in this session are known."
+L["No flask"] = true
+L["no flask: %s"] = true
+L["Print to chat"] = true
+L["opt_noflaskchat_desc"] = "After the fight, prints to your chat who started it without a flask or elixir."
 -- resurrect module lines --
 L["Resurrects"] = true
 -- nickname module lines --

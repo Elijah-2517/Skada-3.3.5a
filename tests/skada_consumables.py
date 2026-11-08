@@ -489,6 +489,8 @@ class MechanicTests(unittest.TestCase):
         NAMES = {[69674] = "Infection", [70337] = "Plague", [12345] = "Custom"}
         GetSpellInfo = function(i) return NAMES[i], nil, "icon" .. i end
         M = {}
+        time = function() return 0 end
+        UnitInVehicle = function(u) return SEATED and SEATED[u] end
         mode = load_module("Mechanics", MECH_SRC, M)
         M.mechuptime = true
         mode:OnEnable()
@@ -531,6 +533,124 @@ class MechanicTests(unittest.TestCase):
         NOW = 9; aura("SPELL_AURA_REMOVED", "Custom", "Rogue")
         local s = spell(Skada.current, "Rogue", 12345)
         assert(s.n == 1 and not s.t)
+        ''')
+
+    def test_order_per_fight_and_total_keeps_counts_only(self):
+        self.check('''
+        Skada.current.starttime = 1000
+        Skada._time = 1045; aura("SPELL_AURA_APPLIED", "Plague", "Tank")
+        Skada._time = 1050; aura("SPELL_AURA_APPLIED", "Plague", "Mage")
+        Skada._time = 1052; aura("SPELL_AURA_APPLIED", "Plague", "Tank")
+        local o = Skada.current.mechorder[70337]
+        assert(o.n[1] == "Tank" and o.n[2] == "Mage" and o.n[3] == "Tank")
+        assert(o.t[1] == 45 and o.t[3] == 52)
+        assert(not Skada.total.mechorder and spell(Skada.total, "Tank", 70337).n == 2)
+        ''')
+
+    def test_valkyr_grab_is_found_by_polling_and_counted_once_per_ride(self):
+        self.check('''
+        ROSTER = {"Mage", "Priest"}; SEATED = {}
+
+        summon_fn = CL[2].fn
+        summon_fn(ev{event="SPELL_SUMMON", spellid=69037})
+        summon_fn(ev{event="SPELL_SUMMON", spellid=69037})    -- 2nd Val'kyr, same scan
+        assert(#timers == 1)
+        local function tick() local t = timers[#timers]; timers[#timers] = nil; t.fn() end
+        tick()                                               -- nobody grabbed yet
+        SEATED.Mage = true; tick(); tick()                   -- carried over two scans
+        assert(spell(Skada.current, "Mage", 69037).n == 1)
+        SEATED.Mage = nil; tick(); SEATED.Mage = true; tick() -- dropped and grabbed again
+        assert(spell(Skada.current, "Mage", 69037).n == 2 and not Skada.current.actors.Priest)
+        while #timers > 0 do tick() end                      -- the scan stops by itself
+        ''')
+
+
+class NoFlaskTests(unittest.TestCase):
+    def setUp(self):
+        self.lua = LuaRuntime(unpack_returned_tuples=True)
+        self.lua.execute(SETUP)
+        self.lua.globals().POTIONS_SRC = (ADDON / "Modules/Potions.lua").read_text(encoding="utf-8-sig")
+        self.lua.execute('''
+        UnitIsConnected = function() return true end
+        UnitIsDeadOrGhost = function(u) return u == "Dead" end
+        UnitIsVisible = function(u) return u ~= "Far" end
+        M = {}
+        assert(loadstring(POTIONS_SRC))("Potions", Skada)
+        ''')
+
+    def test_players_without_flask_are_counted_per_pull_in_fight_and_total(self):
+        self.lua.execute('''
+        -- the registry keeps the last module: "No flask"; Potions still shares its flask ids.
+        local reg = {}
+        Skada.RegisterModule = function(_, name, fn) reg[name] = fn end
+        assert(loadstring(POTIONS_SRC))("Potions", Skada)
+        local O = {modules = {args = {}}, tweaks = {args = {general = {args = {}}}}}
+        reg["Potions"](L, {}, {}, {}, {}, O)
+        reg["No flask"](L, {}, {}, {}, M, O)
+        local mode = Skada.modules["No flask"]
+        mode.localeName = "No flask"; mode:OnInitialize()
+        ROSTER = {"Mage", "Rogue", "Dead", "Far"}
+        BUFFS = {Mage = {53758}}                     -- Mage has a flask
+        Skada.total = {actors = {}}
+        for pull = 1, 2 do
+          Skada.current = {actors = {}}
+          mode:CombatEnter(); mode:CombatLeave()
+          assert(Skada.current.actors.Rogue.noflask == 1 and not Skada.current.actors.Mage)
+          assert(not Skada.current.actors.Dead and not Skada.current.actors.Far)
+        end
+        assert(Skada.total.actors.Rogue.noflask == 2 and Skada.total.noflask == 2)
+        ''')
+
+
+class DeathSavesTests(unittest.TestCase):
+    def setUp(self):
+        self.lua = LuaRuntime(unpack_returned_tuples=True)
+        self.lua.execute(SETUP)
+        self.lua.globals().DEATHS_SRC = (ADDON / "Modules/Deaths.lua").read_text(encoding="utf-8-sig")
+        self.lua.execute('''
+        Skada.Private.tremove = table.remove
+        Skada.Private.guidToUnit = {}
+        Skada.UnitHealthInfo = function() return 0, 1000, 1000 end
+        Skada.ignored_spells = {damage = {}}
+        Skada.ress_spells = {}
+        Skada.IsInGroup = function() return true end
+        Skada.IsInPvP = function() return false end
+        UnitIsFeignDeath = function() return false end
+        date = os.date; time = function() return NOW end
+        M = {deathready = true, deathlogevents = 14, deathlogthreshold = 1000}
+        mode = load_module("Deaths", DEATHS_SRC, M)
+        mode:OnEnable()
+        Skada.current = {actors = {}}
+        function fn_for(event, nth)
+          local k = 0
+          for i = 1, #CL do for _, e in ipairs(CL[i].events) do
+            if e == event then k = k + 1; if k == (nth or 1) then return CL[i].fn end end
+          end end
+        end
+        function hit(name) fn_for("SPELL_DAMAGE")(ev{event="SPELL_DAMAGE", spellid=1, spellstring="1",
+          amount=5000, srcName="Boss", dstGUID="g"..name, dstName=name, dstFlags=1}) end
+        function die(name) fn_for("UNIT_DIED")(ev{event="UNIT_DIED", dstGUID="g"..name, dstName=name, dstFlags=1}) end
+        function cast(name, id) fn_for("SPELL_CAST_SUCCESS", 2)(ev{event="SPELL_CAST_SUCCESS", spellid=id, srcName=name}) end
+        function lock(event, name, id) fn_for("SPELL_AURA_APPLIED", 4)(ev{event=event, spellid=id, dstName=name}) end
+        function ready(name) return Skada.current.actors[name].deathlog[1].ready end
+        ''')
+
+    def test_ready_saves_are_listed_and_cooldowns_and_lockouts_respected(self):
+        self.lua.execute('''
+        NOW = 0; cast("Mage", 45438); cast("Pala", 642); cast("Pala", 498)
+        NOW = 200; hit("Mage"); die("Mage")
+        assert(not ready("Mage"))                                  -- Ice Block still on cooldown
+        NOW = 400; lock("SPELL_AURA_APPLIED", "Pala", 25771)        -- Forbearance
+        hit("Pala"); die("Pala")
+        assert(not ready("Pala"))
+        lock("SPELL_AURA_REMOVED", "Pala", 25771)
+        Skada.current = {actors = {}}
+        hit("Pala"); die("Pala"); hit("Mage"); die("Mage"); hit("Rogue"); die("Rogue")
+        local r = ready("Pala")
+        assert(r[1] == 498 and r[2] == 642 and ready("Mage")[1] == 45438)
+        assert(not ready("Rogue"))                                  -- never seen pressing a save
+        M.deathready = false; Skada.current = {actors = {}}
+        hit("Pala"); die("Pala"); assert(not ready("Pala"))
         ''')
 
 

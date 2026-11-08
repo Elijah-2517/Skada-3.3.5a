@@ -32,6 +32,8 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 		[60344]="44329", [60345]="44330", [60346]="44331", [60347]="44332",
 	}
 
+	Private.flask_ids = long_ids -- shared with the "No flask" mode
+
 	-- Food is not tracked; the ids only remove entries recorded by earlier builds.
 	local food_ids = { [57356]=true, [57358]=true, [57360]=true, [57367]=true, [57365]=true, [57371]=true, [57399]=true, [57329]=true, [57332]=true, [57327]=true, [57325]=true, [57334]=true }
 
@@ -509,5 +511,107 @@ Skada:RegisterModule("Potions", function(L, P, G, C, _, O)
 		end
 
 		return total, tbl
+	end
+end)
+
+-- players with no flask or elixir when the pull starts.
+Skada:RegisterModule("No flask", function(L, _, _, _, M, O)
+	local mode = Skada:NewModule("No flask")
+	local pairs, format, tconcat = pairs, string.format, table.concat
+	local UnitBuff, UnitGUID, UnitName = UnitBuff, UnitGUID, UnitName
+	local UnitIsConnected, UnitIsDeadOrGhost, UnitIsVisible = UnitIsConnected, UnitIsDeadOrGhost, UnitIsVisible
+	local classfmt = Skada.classcolors.format
+	local missing = {}
+
+	local function log_noflask(set, name, guid)
+		local actor = Skada:GetActor(set, name, guid, Private.DEFAULT_FLAGS)
+		if not actor then return end
+		actor.noflask = (actor.noflask or 0) + 1
+		set.noflask = (set.noflask or 0) + 1
+	end
+
+	function mode:CombatEnter()
+		local flasks = Private.flask_ids
+		if not flasks then return end
+		Private.clearTable(missing)
+		for unit in Skada.UnitIterator(true) do
+			local guid = UnitGUID(unit)
+			-- auras of offline, dead or far away players are unknown, so they are not blamed.
+			if guid and UnitIsConnected(unit) and not UnitIsDeadOrGhost(unit) and UnitIsVisible(unit) then
+				local found = false
+				for i = 1, 40 do
+					local aura, _, _, _, _, _, _, _, _, _, spell = UnitBuff(unit, i)
+					if not aura then break end
+					if flasks[spell] then found = true break end
+				end
+				if not found then
+					local name = Private.UnitFullname and Private.UnitFullname(unit) or UnitName(unit)
+					Skada:DispatchSets(log_noflask, name, guid)
+					missing[#missing + 1] = classfmt(Private.guidToClass[guid], name)
+				end
+			end
+		end
+	end
+
+	function mode:CombatLeave()
+		if M.noflaskchat and #missing > 0 then Skada:Printf(L["no flask: %s"], tconcat(missing, ", ")) end
+		Private.clearTable(missing)
+	end
+
+	function mode:Update(win, set)
+		win.title = win.class and format("%s (%s)", L["No flask"], L[win.class]) or L["No flask"]
+		local total = set and set:GetTotal(win.class, nil, "noflask")
+		if not total or total == 0 then return end
+		if win.metadata then win.metadata.maxvalue = 0 end
+
+		local nr = 0
+		for actorname, actor in pairs(set.actors) do
+			if actor.noflask and win:show_actor(actor, set, true) then
+				nr = nr + 1
+				local d = win:actor(nr, actor, actor.enemy, actorname)
+				d.value = actor.noflask
+				d.valuetext = tostring(d.value)
+				if win.metadata and d.value > win.metadata.maxvalue then win.metadata.maxvalue = d.value end
+			end
+		end
+	end
+
+	function mode:GetSetSummary(set, win)
+		return set and set:GetTotal(win and win.class, nil, "noflask") or 0
+	end
+
+	function mode:OnEnable()
+		self.metadata = {
+			showspots = true,
+			ordersort = true,
+			filterclass = true,
+			icon = [[Interface\ICONS\inv_alchemy_endlessflask_06]]
+		}
+		Skada.RegisterMessage(self, "COMBAT_PLAYER_ENTER", "CombatEnter")
+		Skada.RegisterMessage(self, "COMBAT_PLAYER_LEAVE", "CombatLeave")
+		Skada:AddMode(self)
+	end
+
+	function mode:OnDisable()
+		Skada.UnregisterAllMessages(self)
+		Skada:RemoveMode(self)
+	end
+
+	function mode:OnInitialize()
+		O.modules.args.noflask = {
+			type = "group",
+			name = self.localeName,
+			desc = format(L["Options for %s."], self.localeName),
+			args = {
+				noflaskchat = {
+					type = "toggle",
+					name = L["Print to chat"],
+					desc = L["opt_noflaskchat_desc"],
+					descStyle = "inline",
+					width = "full",
+					order = 10
+				}
+			}
+		}
 	end
 end)

@@ -20,6 +20,31 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 	local mode_cols, submode_cols = nil, nil
 	local death_timers -- holds Spirit of Redemption scheduled death timers
 
+	-- personal saves and their base cooldowns. A save counts as owned only once the player
+	-- was seen using it this session, so talents and glyphs need no lookup.
+	-- shortcut: base cooldowns, a talented or glyphed save may read "not ready" a bit too long.
+	local saves = {
+		[45438] = 300, [47585] = 180, [642] = 300, [498] = 180, [22812] = 60, [61336] = 180,
+		[871] = 300, [12975] = 180, [48792] = 120, [48707] = 45, [31224] = 90, [26669] = 180,
+		[19263] = 90, [30823] = 60
+	}
+	local lockouts = {[25771] = {642, 498}, [41425] = {45438}} -- Forbearance, Hypothermia
+	local save_used, save_locked = {}, {} -- [name] = {[spellid] = GetTime()}, [name] = {[spellid] = true}
+
+	local function ready_saves(name)
+		local used = save_used[name]
+		if not used then return end
+		local now, locked, list = GetTime(), save_locked[name]
+		for spellid, at in pairs(used) do
+			if now - at >= saves[spellid] and not (locked and locked[spellid]) then
+				list = list or {}
+				list[#list + 1] = spellid
+			end
+		end
+		if list then tsort(list) end
+		return list
+	end
+
 	--------------------------------------------------------------------------
 	-- colors and icons
 	--------------------------------------------------------------------------
@@ -168,9 +193,11 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 			deathlog.log[#deathlog.log + 1] = log
 		end
 
+		if M.deathready then deathlog.ready = ready_saves(actorname) end
+
 		-- announce death
 		if M.deathannounce and set ~= Skada.total then
-			mode:Announce(deathlog.log, actorname)
+			mode:Announce(deathlog.log, actorname, deathlog.ready)
 		end
 	end
 
@@ -322,6 +349,20 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 			death_timers = death_timers or new()
 			death_timers[t.dstGUID] = Skada:ScheduleTimer(unit_died, 0.01, args)
 		end
+	end
+
+	local function save_cast(t)
+		if not saves[t.spellid] or not t.srcName then return end
+		save_used[t.srcName] = save_used[t.srcName] or {}
+		save_used[t.srcName][t.spellid] = GetTime()
+	end
+
+	local function lockout(t)
+		local spells = lockouts[t.spellid]
+		if not spells or not t.dstName then return end
+		local locked = save_locked[t.dstName] or {}
+		save_locked[t.dstName] = locked
+		for i = 1, #spells do locked[spells[i]] = t.event == "SPELL_AURA_APPLIED" or nil end
 	end
 
 	local ress_spells = Skada.ress_spells
@@ -476,6 +517,21 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 					d.color = nil
 					d.value = 0
 					d.valuetext = format(L["%s dies"], win.actorname)
+
+					local ready = deathlog.ready
+					if ready and ready[1] then
+						local names = new()
+						for i = 1, #ready do names[i] = spellnames[ready[i]] end
+						d = win:nr(1)
+						d.id = -1
+						d.label = L["Saves ready"]
+						d.text = format("%s: %s", L["Saves ready"], tconcat(names, ", "))
+						d.icon = select(3, GetSpellInfo(ready[1]))
+						d.color = get_color("yellow")
+						d.value = 0
+						d.valuetext = ""
+						del(names)
+					end
 				end
 			end
 
@@ -886,6 +942,9 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 			"SPELL_AURA_APPLIED_DOSE"
 		)
 
+		Skada:RegisterForCL(save_cast, {src_is_interesting_nopets = true}, "SPELL_CAST_SUCCESS")
+		Skada:RegisterForCL(lockout, flags_dst_nopets, "SPELL_AURA_APPLIED", "SPELL_AURA_REMOVED")
+
 		Skada.RegisterMessage(self, "COMBAT_PLAYER_LEAVE", "CombatLeave")
 		Skada:AddMode(self)
 	end
@@ -919,7 +978,7 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 	local announce_fmt1 = "%s > %s (%s) %s"
 	local announce_fmt2 = format("%s: %%s > %%s (%%s) %%s", folder)
 
-	function mode:Announce(logs, actorname)
+	function mode:Announce(logs, actorname, ready)
 		-- announce only if:
 		-- 	1. we have a valid deathlog.
 		-- 	2. actor is not in a pvp (spam caution).
@@ -980,6 +1039,13 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 			extra = del(extra)
 		end
 
+		if ready and ready[1] then
+			local names = new()
+			for i = 1, #ready do names[i] = spellnames[ready[i]] end
+			output = format("%s (%s: %s)", output, L["Saves ready"], tconcat(names, ", "))
+			del(names)
+		end
+
 		Skada:SendChat(output, channel, "preset")
 	end
 
@@ -1033,6 +1099,14 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 									step = 1,
 									bigStep = 10,
 									order = 20
+								},
+								deathready = {
+									type = "toggle",
+									name = L["Saves ready"],
+									desc = L["opt_deathready_desc"],
+									descStyle = "inline",
+									width = "full",
+									order = 30
 								}
 							}
 						},
@@ -1097,6 +1171,7 @@ Skada:RegisterModule("Deaths", function(L, P, _, _, M, O)
 			M.deathlogevents = M.deathlogevents or 14
 			M.deathlogthreshold = M.deathlogthreshold or 1000
 			M.deathchannel = M.deathchannel or "AUTO"
+			if M.deathready == nil then M.deathready = true end
 
 			O.modules.args.deathlog = get_options()
 

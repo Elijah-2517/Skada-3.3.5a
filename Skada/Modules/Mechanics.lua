@@ -5,8 +5,9 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 	local mode_spell = mode:NewModule("Spell List")
 	local mode_target = mode_spell:NewModule("Target List")
 
-	local pairs, format, tonumber, gmatch = pairs, string.format, tonumber, string.gmatch
-	local GetSpellInfo, GetTime = GetSpellInfo, GetTime
+	local pairs, format, tonumber, gmatch, max, select = pairs, string.format, tonumber, string.gmatch, math.max, select
+	local GetSpellInfo, GetTime, time = GetSpellInfo, GetTime, time
+	local UnitGUID, UnitName, UnitInVehicle = UnitGUID, UnitName, UnitInVehicle
 	local classfmt = Skada.classcolors.format
 	local mode_cols = nil
 
@@ -27,6 +28,15 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 	local names = {} -- [localized name] = spell id used for the icon
 	local custom_cache
 	local started = {} -- [guid] = {[spellid] = {t = start, name = , flags = }}
+	-- Val'kyr grabs are vehicle seats, not auras: the raid is polled after each summon.
+	local VALKYR = 69037 -- Summon Val'kyr
+	local carried, scans = {}, 0
+
+	local function spell_label(spellid)
+		if spellid == VALKYR then return L["Val'kyr grab"], (select(3, GetSpellInfo(spellid))) end
+		local name, _, icon = GetSpellInfo(spellid)
+		return name, icon
+	end
 
 	local function refresh_names()
 		if custom_cache == (M.mechcustom or "") then return end
@@ -58,6 +68,17 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 		spell.n = spell.n + 1
 		actor.mech = (actor.mech or 0) + 1
 		set.mech = (set.mech or 0) + 1
+
+		-- who got it in which order; one fight only, the total would grow without end.
+		if set == Skada.total and not P.totalidc then return end
+		set.mechorder = set.mechorder or {}
+		local order = set.mechorder[spellid]
+		if not order then
+			order = {n = {}, t = {}}
+			set.mechorder[spellid] = order
+		end
+		order.n[#order.n + 1] = name
+		order.t[#order.t + 1] = max(0, (Skada._time or time()) - (set.starttime or time()))
 	end
 
 	-- shortcut: a phase segment opened mid-debuff gets the whole duration, fine for a debuff view.
@@ -95,6 +116,28 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 		end
 	end
 
+	local function scan()
+		for unit in Skada.UnitIterator(true) do
+			local guid = UnitGUID(unit)
+			if guid and UnitInVehicle(unit) then
+				if not carried[guid] then
+					carried[guid] = true
+					Skada:DispatchSets(log_applied, UnitName(unit), guid, Private.DEFAULT_FLAGS, VALKYR)
+				end
+			elseif guid then
+				carried[guid] = nil
+			end
+		end
+		scans = scans - 1
+		if scans > 0 then Skada:ScheduleTimer(scan, 0.5) end
+	end
+
+	local function summon(t)
+		if t.spellid ~= VALKYR then return end
+		if scans <= 0 then Skada:ScheduleTimer(scan, 0.5) end
+		scans = 10 -- 5 seconds: the Val'kyr picks a target right after spawning.
+	end
+
 	-- debuffs still up when the fight ends count until that moment.
 	function mode:CombatLeave()
 		local now = GetTime()
@@ -102,6 +145,7 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 			for spellid in pairs(list) do stop_timer(guid, spellid, now) end
 		end
 		Private.clearTable(started)
+		Private.clearTable(carried)
 	end
 
 	local function valuetext(d, count, duration)
@@ -120,6 +164,23 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 		win.title = format(L["%s's targets"], win.spellname or L["Unknown"])
 		if not set or not set.actors or not win.spellid then return end
 		if win.metadata then win.metadata.maxvalue = 0 end
+
+		-- a fight: everyone in the order they got it. Total: counts per player.
+		local order = set.mechorder and set.mechorder[win.spellid]
+		if order then
+			for i = 1, #order.n do
+				local actorname = order.n[i]
+				local actor = set.actors[actorname]
+				if actor and win:show_actor(actor, set, true) then
+					local d = win:actor(i, actor, actor.enemy, actorname)
+					d.text = format("%d. %s  %s", i, Skada:FormatTime(order.t[i]), classfmt(actor.class, actorname))
+					d.value = #order.n - i + 1
+					d.valuetext = ""
+					if win.metadata and d.value > win.metadata.maxvalue then win.metadata.maxvalue = d.value end
+				end
+			end
+			return
+		end
 
 		local nr = 0
 		for actorname, actor in pairs(set.actors) do
@@ -150,7 +211,7 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 
 		local nr = 0
 		for spellid, spell in pairs(spells) do
-			local name, _, icon = GetSpellInfo(spellid)
+			local name, icon = spell_label(spellid)
 			nr = nr + 1
 			local d = win:nr(nr)
 			d.id = spellid
@@ -210,6 +271,7 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 
 		Skada:RegisterForCL(aura, {dst_is_interesting_nopets = true},
 			"SPELL_AURA_APPLIED", "SPELL_AURA_REFRESH", "SPELL_AURA_REMOVED")
+		Skada:RegisterForCL(summon, nil, "SPELL_SUMMON")
 		Skada.RegisterMessage(self, "COMBAT_PLAYER_LEAVE", "CombatLeave")
 		Skada.RegisterCallback(self, "Skada_ApplySettings", "ApplySettings")
 		Skada:AddMode(self, "Buffs and Debuffs")
@@ -217,6 +279,7 @@ Skada:RegisterModule("Mechanics", function(L, P, _, _, M, O)
 
 	function mode:OnDisable()
 		Skada:UnregisterFromCL(aura)
+		Skada:UnregisterFromCL(summon)
 		Skada.UnregisterAllMessages(self)
 		Skada.UnregisterAllCallbacks(self)
 		Skada:RemoveMode(self)
