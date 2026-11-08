@@ -174,6 +174,6 @@ python tests/skada_settings_compat.py /path/to/previous/Skada Skada
 
 ## Авторство и лицензии
 
-Исходная Skada-WoTLK: Kader (bkader), с указанием Zarnivoop в исходном проекте. База Netic: NeticSoul; использован снимок публичного форка thezephyrsong. Авторство тем и ресурсов сохранено в исходных файлах. Иконки специализаций HongDou (`Skada/Media/Textures/icons-hd.tga`) нарисованы ChuckHD для аддона [HDskada](https://www.curseforge.com/wow/addons/hdskada) и используются с разрешения автора. Авторство и уведомления встроенных библиотек сохранены в их файлах.
+Исходная Skada-WoTLK: Kader (bkader), с указанием Zarnivoop в исходном проекте. База Netic: NeticSoul; использован снимок публичного форка thezephyrsong. Авторство тем и ресурсов сохранено в исходных файлах. Иконки специализаций HongDou (`Skada/Media/Textures/icons-hd.tga`): ChuckHD ([HDskada](https://www.curseforge.com/wow/addons/hdskada)). Авторство и уведомления встроенных библиотек сохранены в их файлах.
 
 Основной проект распространяется по MIT; текст исходной лицензии находится в `LICENSE.md`. Встроенные библиотеки сохраняют собственные лицензии. В частности, поставляемая версия LibDeflate указывает GPL версии 3 или более поздней; текст GPL-3.0 приложен в `LICENSES/GPL-3.0.txt`.

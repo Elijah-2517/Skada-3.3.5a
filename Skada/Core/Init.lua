@@ -502,7 +502,7 @@ function Private.RegisterClasses()
 		[267] = {0/512, 64/512, 384/512, 448/512} --> Warlock: Destruction
 	}, speccoords_mt)
 
-	-- HongDou spec icons by ChuckHD (HDskada), used with the author's permission.
+	-- HongDou spec icons by ChuckHD (HDskada).
 	ns.hdspecicons = format([[%s\Textures\icons-hd]], ns.mediapath)
 	ns.hdspeccoords = setmetatable({
 		[62] = {(128/512) + 1/512, 192/512, 64/512, 128/512}, [63] = {192/512, 256/512, 64/512, 128/512},
